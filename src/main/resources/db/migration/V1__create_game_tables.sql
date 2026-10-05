@@ -3,6 +3,7 @@ CREATE TABLE players
     id         UUID PRIMARY KEY,
     username   VARCHAR(100)             NOT NULL UNIQUE,
     balance    NUMERIC(19, 2)           NOT NULL,
+    version    BIGINT                   NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL
 );

@@ -11,7 +11,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-import kh.virakchantrak.KhlaKhlouk.common.constant.Symbol;
+import kh.virakchantrak.KhlaKhlouk.game.domain.Symbol;
 import kh.virakchantrak.KhlaKhlouk.game.domain.Game;
 import kh.virakchantrak.KhlaKhlouk.player.domain.Player;
 import lombok.Getter;

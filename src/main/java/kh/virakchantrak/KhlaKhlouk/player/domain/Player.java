@@ -6,6 +6,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -32,6 +33,9 @@ public class Player {
 
     @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal balance;
+
+    @Version
+    private Long version;
 
     @CreationTimestamp
     private Instant createdAt;

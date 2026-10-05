@@ -1,4 +1,4 @@
-package kh.virakchantrak.KhlaKhlouk.common.constant;
+package kh.virakchantrak.KhlaKhlouk.game.domain;
 
 public enum Symbol {
     TIGER,
