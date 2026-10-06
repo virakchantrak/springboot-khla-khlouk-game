@@ -1,6 +1,8 @@
 package kh.virakchantrak.KhlaKhlouk.common.exception;
 
 import kh.virakchantrak.KhlaKhlouk.common.response.ApiError;
+import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -48,6 +50,21 @@ public class GlobalExceptionHandler {
                                 "VALIDATION_ERROR",
                                 "Request validation failed",
                                 errors
+                        )
+                );
+    }
+
+    @ExceptionHandler(OptimisticLockingFailureException.class)
+    public ResponseEntity<ApiError> handleOptimisticLockingException(
+            OptimisticLockingFailureException exception
+    ) {
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
+                .body(
+                        new ApiError(
+                                "CONCURRENT_UPDATE",
+                                "The resource was modified by another request",
+                                Map.of()
                         )
                 );
     }

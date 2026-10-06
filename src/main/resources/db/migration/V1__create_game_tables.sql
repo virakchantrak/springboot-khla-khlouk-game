@@ -12,6 +12,7 @@ CREATE TABLE games
 (
     id         UUID PRIMARY KEY,
     status     VARCHAR(20)              NOT NULL,
+    version    BIGINT                   NOT NULL DEFAULT 0,
     started_at TIMESTAMP WITH TIME ZONE,
     ended_at   TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL
