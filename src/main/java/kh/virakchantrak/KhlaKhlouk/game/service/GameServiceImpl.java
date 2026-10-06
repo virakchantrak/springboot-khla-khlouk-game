@@ -2,6 +2,8 @@ package kh.virakchantrak.KhlaKhlouk.game.service;
 
 import kh.virakchantrak.KhlaKhlouk.bet.domain.Bet;
 import kh.virakchantrak.KhlaKhlouk.bet.repository.BetRepository;
+import kh.virakchantrak.KhlaKhlouk.common.exception.BusinessException;
+import kh.virakchantrak.KhlaKhlouk.game.controller.dto.GameDetailsResponse;
 import kh.virakchantrak.KhlaKhlouk.game.domain.Dice;
 import kh.virakchantrak.KhlaKhlouk.game.domain.Game;
 import kh.virakchantrak.KhlaKhlouk.game.domain.GameResult;
@@ -12,6 +14,9 @@ import kh.virakchantrak.KhlaKhlouk.game.repository.GameRepository;
 import kh.virakchantrak.KhlaKhlouk.game.repository.GameResultRepository;
 import kh.virakchantrak.KhlaKhlouk.player.domain.Player;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -41,11 +46,13 @@ public class GameServiceImpl implements GameService {
 
     @Override
     public Game startBetting(UUID gameId) {
-        Game game = getGame(gameId);
+        Game game = getGameById(gameId);
 
         if (game.getStatus() != GameStatus.WAITING) {
-            throw new IllegalStateException(
-                    "Game is not waiting"
+            throw new BusinessException(
+                    "GAME_NOT_WAITING",
+                    "Game is not waiting",
+                    HttpStatus.BAD_REQUEST
             );
         }
 
@@ -56,13 +63,15 @@ public class GameServiceImpl implements GameService {
     }
 
     @Override
-    public Game rollGame(UUID gameId) {
+    public GameResult rollGame(UUID gameId) {
 
-        Game game = getGame(gameId);
+        Game game = getGameById(gameId);
 
         if (game.getStatus() != GameStatus.BETTING) {
-            throw new IllegalStateException(
-                    "Game is not accepting bets"
+            throw new BusinessException(
+                    "GAME_NOT_ACCEPTING_BETS",
+                    "Game is not accepting bets",
+                    HttpStatus.BAD_REQUEST
             );
         }
 
@@ -110,14 +119,74 @@ public class GameServiceImpl implements GameService {
         game.setStatus(GameStatus.FINISHED);
         game.setEndedAt(Instant.now());
 
-        return game;
+        return gameResult;
     }
 
-    private Game getGame(UUID gameId) {
+    @Override
+    @Transactional(readOnly = true)
+    public GameResult getGameResult(UUID gameId) {
+
+        Game game = getGameById(gameId);
+
+        if (game.getStatus() != GameStatus.FINISHED) {
+            throw new BusinessException(
+                    "GAME_NOT_FINISHED",
+                    "Game has not finished yet",
+                    HttpStatus.BAD_REQUEST
+            );
+        }
+
+        return gameResultRepository.findByGameId(gameId)
+                .orElseThrow(() ->
+                        new BusinessException(
+                                "GAME_RESULT_NOT_FOUND",
+                                "Game result not found",
+                                HttpStatus.NOT_FOUND
+                        )
+                );
+    }
+
+    private Game getGameById(UUID gameId) {
         return gameRepository.findById(gameId)
                 .orElseThrow(() ->
-                        new IllegalArgumentException(
-                                "Game not found"
+                        new BusinessException(
+                                "GAME_NOT_FOUND",
+                                "Game not found",
+                                HttpStatus.NOT_FOUND
                         ));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<Game> getGames(Pageable pageable) {
+        return gameRepository.findAllByOrderByCreatedAtDesc(pageable);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public GameDetailsResponse getGameDetails(UUID gameId) {
+
+        Game game = getGameById(gameId);
+
+        GameResult result = gameResultRepository
+                .findByGameId(gameId)
+                .orElse(null);
+
+        long totalBets = betRepository.countByGameId(gameId);
+
+        BigDecimal totalBetAmount =
+                betRepository.sumAmountByGameId(gameId);
+
+        return new GameDetailsResponse(
+                game.getId(),
+                game.getStatus(),
+                game.getStartedAt(),
+                game.getEndedAt(),
+                result != null ? result.getDice1() : null,
+                result != null ? result.getDice2() : null,
+                result != null ? result.getDice3() : null,
+                (int) totalBets,
+                totalBetAmount
+        );
     }
 }

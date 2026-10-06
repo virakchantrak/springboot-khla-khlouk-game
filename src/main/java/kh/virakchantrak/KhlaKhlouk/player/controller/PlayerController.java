@@ -1,5 +1,6 @@
 package kh.virakchantrak.KhlaKhlouk.player.controller;
 
+import jakarta.validation.Valid;
 import kh.virakchantrak.KhlaKhlouk.player.controller.dto.CreatePlayerRequest;
 import kh.virakchantrak.KhlaKhlouk.player.controller.dto.PlayerResponse;
 import kh.virakchantrak.KhlaKhlouk.player.domain.Player;
@@ -23,7 +24,7 @@ public class PlayerController {
 
     @PostMapping
     public PlayerResponse createPlayer(
-            @RequestBody CreatePlayerRequest request
+            @Valid @RequestBody CreatePlayerRequest request
     ) {
         Player player = playerService.createPlayer(
                 request.username(),
