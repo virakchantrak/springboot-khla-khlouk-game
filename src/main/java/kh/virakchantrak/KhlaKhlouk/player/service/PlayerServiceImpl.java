@@ -1,8 +1,10 @@
 package kh.virakchantrak.KhlaKhlouk.player.service;
 
+import kh.virakchantrak.KhlaKhlouk.common.exception.BusinessException;
 import kh.virakchantrak.KhlaKhlouk.player.domain.Player;
 import kh.virakchantrak.KhlaKhlouk.player.repository.PlayerRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,14 +24,18 @@ public class PlayerServiceImpl implements PlayerService {
             BigDecimal initialBalance
     ) {
         if (playerRepository.findByUsername(username).isPresent()) {
-            throw new IllegalArgumentException(
-                    "Username already exists"
+            throw new BusinessException(
+                    "USERNAME_ALREADY_EXISTS",
+                    "Username already exists",
+                    HttpStatus.CONFLICT
             );
         }
 
         if (initialBalance.compareTo(BigDecimal.ZERO) < 0) {
-            throw new IllegalArgumentException(
-                    "Initial balance cannot be negative"
+            throw new BusinessException(
+                    "INITIAL_BALANCE_NEGATIVE",
+                    "Initial balance cannot be negative",
+                    HttpStatus.BAD_REQUEST
             );
         }
 
@@ -46,8 +52,10 @@ public class PlayerServiceImpl implements PlayerService {
     public Player getPlayer(UUID playerId) {
         return playerRepository.findById(playerId)
                 .orElseThrow(() ->
-                        new IllegalArgumentException(
-                                "Player not found"
+                        new BusinessException(
+                                "PLAYER_NOT_FOUND",
+                                "Player not found",
+                                HttpStatus.NOT_FOUND
                         ));
     }
 }

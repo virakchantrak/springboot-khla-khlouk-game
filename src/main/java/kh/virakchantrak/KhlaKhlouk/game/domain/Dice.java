@@ -9,13 +9,16 @@ public class Dice {
 
     private final Random random;
 
-    public Dice(Random random) {
+    public Dice() {
+        this(new Random());
+    }
+
+    Dice(Random random) {
         this.random = random;
     }
 
     public Symbol roll() {
         Symbol[] symbols = Symbol.values();
-
         return symbols[random.nextInt(symbols.length)];
     }
 
