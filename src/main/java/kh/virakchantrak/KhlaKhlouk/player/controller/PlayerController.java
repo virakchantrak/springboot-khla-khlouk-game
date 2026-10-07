@@ -1,6 +1,7 @@
 package kh.virakchantrak.KhlaKhlouk.player.controller;
 
 import jakarta.validation.Valid;
+import kh.virakchantrak.KhlaKhlouk.auth.service.CurrentPlayerService;
 import kh.virakchantrak.KhlaKhlouk.player.controller.dto.CreatePlayerRequest;
 import kh.virakchantrak.KhlaKhlouk.player.controller.dto.PlayerResponse;
 import kh.virakchantrak.KhlaKhlouk.player.domain.Player;
@@ -21,6 +22,7 @@ import java.util.UUID;
 public class PlayerController {
 
     private final PlayerService playerService;
+    private final CurrentPlayerService currentPlayerService;
 
     @PostMapping
     public PlayerResponse createPlayer(
@@ -28,6 +30,7 @@ public class PlayerController {
     ) {
         Player player = playerService.createPlayer(
                 request.username(),
+                request.password(),
                 request.initialBalance()
         );
 
@@ -41,6 +44,15 @@ public class PlayerController {
         return toResponse(
                 playerService.getPlayer(playerId)
         );
+    }
+
+    @GetMapping("/me")
+    public PlayerResponse getCurrentPlayer() {
+        Player player = playerService.getPlayer(
+                currentPlayerService.getPlayerId()
+        );
+
+        return toResponse(player);
     }
 
     private PlayerResponse toResponse(Player player) {
