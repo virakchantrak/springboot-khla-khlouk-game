@@ -13,10 +13,12 @@ import kh.virakchantrak.KhlaKhlouk.game.domain.RollResult;
 import kh.virakchantrak.KhlaKhlouk.game.repository.GameRepository;
 import kh.virakchantrak.KhlaKhlouk.game.repository.GameResultRepository;
 import kh.virakchantrak.KhlaKhlouk.player.domain.Player;
+import kh.virakchantrak.KhlaKhlouk.websocket.GameEvent;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,6 +37,7 @@ public class GameServiceImpl implements GameService {
     private final GameResultRepository gameResultRepository;
     private final Dice dice;
     private final PayoutCalculator payoutCalculator;
+    private final SimpMessagingTemplate messagingTemplate;
 
     @Override
     public Game createGame() {
@@ -118,6 +121,17 @@ public class GameServiceImpl implements GameService {
         // 5. Finish the game
         game.setStatus(GameStatus.FINISHED);
         game.setEndedAt(Instant.now());
+
+        messagingTemplate.convertAndSend(
+                "/topic/games/" + gameId,
+                new GameEvent(
+                        game.getId(),
+                        game.getStatus(),
+                        gameResult.getDice1(),
+                        gameResult.getDice2(),
+                        gameResult.getDice3()
+                )
+        );
 
         return gameResult;
     }
