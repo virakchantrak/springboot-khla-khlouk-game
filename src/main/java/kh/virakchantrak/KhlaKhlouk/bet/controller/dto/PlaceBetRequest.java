@@ -5,12 +5,8 @@ import jakarta.validation.constraints.NotNull;
 import kh.virakchantrak.KhlaKhlouk.game.domain.Symbol;
 
 import java.math.BigDecimal;
-import java.util.UUID;
 
 public record PlaceBetRequest(
-
-        @NotNull(message = "Player ID is required")
-        UUID playerId,
 
         @NotNull(message = "Symbol is required")
         Symbol symbol,
