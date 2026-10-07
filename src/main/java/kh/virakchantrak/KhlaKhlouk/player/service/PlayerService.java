@@ -9,6 +9,7 @@ public interface PlayerService {
 
     Player createPlayer(
             String username,
+            String password,
             BigDecimal initialBalance
     );
 

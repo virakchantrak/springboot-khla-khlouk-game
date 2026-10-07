@@ -5,6 +5,7 @@ import kh.virakchantrak.KhlaKhlouk.player.domain.Player;
 import kh.virakchantrak.KhlaKhlouk.player.repository.PlayerRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,10 +18,12 @@ import java.util.UUID;
 public class PlayerServiceImpl implements PlayerService {
 
     private final PlayerRepository playerRepository;
+    private final PasswordEncoder passwordEncoder;
 
     @Override
     public Player createPlayer(
             String username,
+            String password,
             BigDecimal initialBalance
     ) {
         if (playerRepository.findByUsername(username).isPresent()) {
@@ -42,6 +45,7 @@ public class PlayerServiceImpl implements PlayerService {
         Player player = new Player();
 
         player.setUsername(username);
+        player.setPasswordHash(passwordEncoder.encode(password));
         player.setBalance(initialBalance);
 
         return playerRepository.save(player);

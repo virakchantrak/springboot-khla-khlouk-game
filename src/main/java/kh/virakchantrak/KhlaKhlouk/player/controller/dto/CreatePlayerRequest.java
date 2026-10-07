@@ -13,6 +13,10 @@ public record CreatePlayerRequest(
         @Size(max = 100, message = "Username must not exceed 100 characters")
         String username,
 
+        @NotBlank(message = "Password is required")
+        @Size(min = 6, message = "Password must be at least 6 characters long")
+        String password,
+
         @NotNull(message = "Initial balance is required")
         @DecimalMin(
                 value = "0.00",
