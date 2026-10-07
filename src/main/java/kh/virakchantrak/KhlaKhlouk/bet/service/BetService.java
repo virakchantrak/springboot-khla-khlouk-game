@@ -12,7 +12,6 @@ public interface BetService {
 
     Bet placeBet(
             UUID gameId,
-            UUID playerId,
             Symbol symbol,
             BigDecimal amount
     );

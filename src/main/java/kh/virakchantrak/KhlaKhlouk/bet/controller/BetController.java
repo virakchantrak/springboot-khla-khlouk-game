@@ -34,7 +34,6 @@ public class BetController {
     ) {
         Bet bet = betService.placeBet(
                 gameId,
-                request.playerId(),
                 request.symbol(),
                 request.amount()
         );

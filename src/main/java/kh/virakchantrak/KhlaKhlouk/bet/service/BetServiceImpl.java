@@ -1,5 +1,6 @@
 package kh.virakchantrak.KhlaKhlouk.bet.service;
 
+import kh.virakchantrak.KhlaKhlouk.auth.service.CurrentPlayerService;
 import kh.virakchantrak.KhlaKhlouk.bet.domain.Bet;
 import kh.virakchantrak.KhlaKhlouk.bet.repository.BetRepository;
 import kh.virakchantrak.KhlaKhlouk.common.exception.BusinessException;
@@ -27,14 +28,16 @@ public class BetServiceImpl implements BetService {
     private final GameRepository gameRepository;
     private final PlayerRepository playerRepository;
     private final BetRepository betRepository;
+    private final CurrentPlayerService currentPlayerService;
 
     @Override
     public Bet placeBet(
             UUID gameId,
-            UUID playerId,
             Symbol symbol,
             BigDecimal amount
     ) {
+        UUID playerId = currentPlayerService.getPlayerId();
+
         Game game = gameRepository.findById(gameId)
                 .orElseThrow(() ->
                         new BusinessException("GAME_NOT_FOUND", "Game not found", HttpStatus.NOT_FOUND));
