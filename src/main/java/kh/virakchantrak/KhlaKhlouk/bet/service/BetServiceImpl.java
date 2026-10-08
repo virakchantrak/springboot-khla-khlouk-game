@@ -94,7 +94,9 @@ public class BetServiceImpl implements BetService {
                         game.getStatus(),
                         null,
                         null,
-                        null
+                        null,
+                        (int) betRepository.countByGameId(gameId),
+                        betRepository.sumAmountByGameId(gameId)
                 )
         );
 
