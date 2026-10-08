@@ -49,7 +49,11 @@ public class SecurityConfig {
         return http
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/v1/auth/**", "/api/v1/players").permitAll()
+                        .requestMatchers(
+                                "/api/v1/auth/**",
+                                "/api/v1/players",
+                                "/ws")
+                        .permitAll()
                         .anyRequest().authenticated()
                 )
                 .exceptionHandling(exception -> exception
