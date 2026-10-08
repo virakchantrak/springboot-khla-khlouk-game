@@ -13,6 +13,9 @@ import kh.virakchantrak.KhlaKhlouk.game.domain.RollResult;
 import kh.virakchantrak.KhlaKhlouk.game.repository.GameRepository;
 import kh.virakchantrak.KhlaKhlouk.game.repository.GameResultRepository;
 import kh.virakchantrak.KhlaKhlouk.player.domain.Player;
+import kh.virakchantrak.KhlaKhlouk.wallet.domain.WalletTransaction;
+import kh.virakchantrak.KhlaKhlouk.wallet.domain.WalletTransactionType;
+import kh.virakchantrak.KhlaKhlouk.wallet.repository.WalletTransactionRepository;
 import kh.virakchantrak.KhlaKhlouk.websocket.GameEvent;
 import kh.virakchantrak.KhlaKhlouk.websocket.GameEventType;
 import lombok.RequiredArgsConstructor;
@@ -39,6 +42,7 @@ public class GameServiceImpl implements GameService {
     private final Dice dice;
     private final PayoutCalculator payoutCalculator;
     private final ApplicationEventPublisher eventPublisher;
+    private final WalletTransactionRepository walletTransactionRepository;
 
     @Override
     public Game createGame() {
@@ -129,6 +133,14 @@ public class GameServiceImpl implements GameService {
                 player.setBalance(
                         player.getBalance().add(payout)
                 );
+
+                WalletTransaction transaction = new WalletTransaction();
+                transaction.setPlayer(player);
+                transaction.setType(WalletTransactionType.PAYOUT);
+                transaction.setAmount(payout);
+                transaction.setBalanceAfter(player.getBalance());
+                transaction.setReferenceId(bet.getId());
+                walletTransactionRepository.save(transaction);
             }
         }
 
