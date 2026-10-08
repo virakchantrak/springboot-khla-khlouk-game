@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Khla Khlouk WS test</title>
+    <script src="https://cdn.jsdelivr.net/npm/@stomp/stompjs@7.0.0/bundles/stomp.umd.min.js"></script>
+</head>
+<body>
+<h3>Khla Khlouk WebSocket test</h3>
+
+<input id="username" placeholder="username">
+<input id="password" type="password" placeholder="password">
+<button onclick="login()">1. Login</button>
+<br><br>
+
+<input id="gameId" placeholder="game id (UUID)" size="40">
+<button onclick="connect()">2. Connect &amp; subscribe</button>
+
+<pre id="log" style="background:#eee; padding:10px; height:300px; overflow:auto"></pre>
+
+<script>
+    let token = null;
+    let client = null;
+
+    function log(msg) {
+        document.getElementById('log').textContent +=
+            new Date().toLocaleTimeString() + '  ' + msg + '\n';
+    }
+
+    async function login() {
+        const res = await fetch('/api/v1/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                username: document.getElementById('username').value,
+                password: document.getElementById('password').value
+            })
+        });
+        if (!res.ok) { log('Login failed: ' + res.status); return; }
+        token = (await res.json()).accessToken;
+        log('Login OK');
+    }
+
+    function connect() {
+        if (!token) { log('Login first'); return; }
+        const gameId = document.getElementById('gameId').value.trim();
+
+        client = new StompJs.Client({
+            brokerURL: (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws',
+            connectHeaders: { Authorization: 'Bearer ' + token },
+            reconnectDelay: 0,
+            onConnect: () => {
+                log('Connected');
+                client.subscribe('/topic/games/' + gameId, msg => log('EVENT: ' + msg.body));
+                log('Subscribed to /topic/games/' + gameId);
+            },
+            onStompError: frame => log('STOMP error: ' + frame.headers['message']),
+            onWebSocketClose: () => log('Socket closed')
+        });
+        client.activate();
+    }
+</script>
+</body>
+</html>

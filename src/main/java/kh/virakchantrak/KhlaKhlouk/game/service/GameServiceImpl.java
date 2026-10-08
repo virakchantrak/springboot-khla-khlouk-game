@@ -14,6 +14,7 @@ import kh.virakchantrak.KhlaKhlouk.game.repository.GameRepository;
 import kh.virakchantrak.KhlaKhlouk.game.repository.GameResultRepository;
 import kh.virakchantrak.KhlaKhlouk.player.domain.Player;
 import kh.virakchantrak.KhlaKhlouk.websocket.GameEvent;
+import kh.virakchantrak.KhlaKhlouk.websocket.GameEventType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
@@ -61,6 +62,17 @@ public class GameServiceImpl implements GameService {
 
         game.setStatus(GameStatus.BETTING);
         game.setStartedAt(Instant.now());
+
+        eventPublisher.publishEvent(
+                new GameEvent(
+                        GameEventType.BETTING_OPENED,
+                        game.getId(),
+                        game.getStatus(),
+                        null,
+                        null,
+                        null
+                )
+        );
 
         return game;
     }
@@ -124,6 +136,7 @@ public class GameServiceImpl implements GameService {
 
         eventPublisher.publishEvent(
                 new GameEvent(
+                        GameEventType.GAME_FINISHED,
                         game.getId(),
                         game.getStatus(),
                         gameResult.getDice1(),
