@@ -15,10 +15,10 @@ import kh.virakchantrak.KhlaKhlouk.game.repository.GameResultRepository;
 import kh.virakchantrak.KhlaKhlouk.player.domain.Player;
 import kh.virakchantrak.KhlaKhlouk.websocket.GameEvent;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,7 +37,7 @@ public class GameServiceImpl implements GameService {
     private final GameResultRepository gameResultRepository;
     private final Dice dice;
     private final PayoutCalculator payoutCalculator;
-    private final SimpMessagingTemplate messagingTemplate;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     public Game createGame() {
@@ -122,8 +122,7 @@ public class GameServiceImpl implements GameService {
         game.setStatus(GameStatus.FINISHED);
         game.setEndedAt(Instant.now());
 
-        messagingTemplate.convertAndSend(
-                "/topic/games/" + gameId,
+        eventPublisher.publishEvent(
                 new GameEvent(
                         game.getId(),
                         game.getStatus(),
