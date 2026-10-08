@@ -70,6 +70,8 @@ public class GameServiceImpl implements GameService {
                         game.getStatus(),
                         null,
                         null,
+                        null,
+                        null,
                         null
                 )
         );
@@ -141,7 +143,9 @@ public class GameServiceImpl implements GameService {
                         game.getStatus(),
                         gameResult.getDice1(),
                         gameResult.getDice2(),
-                        gameResult.getDice3()
+                        gameResult.getDice3(),
+                        null,
+                        null
                 )
         );
 

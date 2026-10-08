@@ -3,6 +3,7 @@ package kh.virakchantrak.KhlaKhlouk.websocket;
 import kh.virakchantrak.KhlaKhlouk.game.domain.GameStatus;
 import kh.virakchantrak.KhlaKhlouk.game.domain.Symbol;
 
+import java.math.BigDecimal;
 import java.util.UUID;
 
 public record GameEvent(
@@ -11,6 +12,8 @@ public record GameEvent(
         GameStatus status,
         Symbol dice1,
         Symbol dice2,
-        Symbol dice3
+        Symbol dice3,
+        Integer totalBets,
+        BigDecimal totalBetAmount
 ) {
 }
