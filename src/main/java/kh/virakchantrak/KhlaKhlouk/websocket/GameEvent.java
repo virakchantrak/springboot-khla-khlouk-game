@@ -6,6 +6,7 @@ import kh.virakchantrak.KhlaKhlouk.game.domain.Symbol;
 import java.util.UUID;
 
 public record GameEvent(
+        GameEventType type,
         UUID gameId,
         GameStatus status,
         Symbol dice1,

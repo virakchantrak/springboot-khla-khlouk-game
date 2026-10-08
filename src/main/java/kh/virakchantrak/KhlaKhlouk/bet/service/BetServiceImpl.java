@@ -10,7 +10,10 @@ import kh.virakchantrak.KhlaKhlouk.game.domain.Symbol;
 import kh.virakchantrak.KhlaKhlouk.game.repository.GameRepository;
 import kh.virakchantrak.KhlaKhlouk.player.domain.Player;
 import kh.virakchantrak.KhlaKhlouk.player.repository.PlayerRepository;
+import kh.virakchantrak.KhlaKhlouk.websocket.GameEvent;
+import kh.virakchantrak.KhlaKhlouk.websocket.GameEventType;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -29,6 +32,7 @@ public class BetServiceImpl implements BetService {
     private final PlayerRepository playerRepository;
     private final BetRepository betRepository;
     private final CurrentPlayerService currentPlayerService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     public Bet placeBet(
@@ -81,7 +85,20 @@ public class BetServiceImpl implements BetService {
         bet.setAmount(amount);
         bet.setPayout(BigDecimal.ZERO);
 
-        return betRepository.save(bet);
+        Bet saved = betRepository.save(bet);
+
+        eventPublisher.publishEvent(
+                new GameEvent(
+                        GameEventType.BET_PLACED,
+                        game.getId(),
+                        game.getStatus(),
+                        null,
+                        null,
+                        null
+                )
+        );
+
+        return saved;
     }
 
     @Override
