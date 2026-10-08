@@ -31,6 +31,7 @@ public class Player {
     @Column(nullable = false, unique = true)
     private String username;
 
+    @Column(nullable = false)
     private String passwordHash;
 
     @Column(nullable = false, precision = 19, scale = 2)

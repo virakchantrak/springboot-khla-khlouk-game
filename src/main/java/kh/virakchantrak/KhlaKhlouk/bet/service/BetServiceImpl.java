@@ -10,6 +10,9 @@ import kh.virakchantrak.KhlaKhlouk.game.domain.Symbol;
 import kh.virakchantrak.KhlaKhlouk.game.repository.GameRepository;
 import kh.virakchantrak.KhlaKhlouk.player.domain.Player;
 import kh.virakchantrak.KhlaKhlouk.player.repository.PlayerRepository;
+import kh.virakchantrak.KhlaKhlouk.wallet.domain.WalletTransaction;
+import kh.virakchantrak.KhlaKhlouk.wallet.domain.WalletTransactionType;
+import kh.virakchantrak.KhlaKhlouk.wallet.repository.WalletTransactionRepository;
 import kh.virakchantrak.KhlaKhlouk.websocket.GameEvent;
 import kh.virakchantrak.KhlaKhlouk.websocket.GameEventType;
 import lombok.RequiredArgsConstructor;
@@ -33,6 +36,7 @@ public class BetServiceImpl implements BetService {
     private final BetRepository betRepository;
     private final CurrentPlayerService currentPlayerService;
     private final ApplicationEventPublisher eventPublisher;
+    private final WalletTransactionRepository walletTransactionRepository;
 
     @Override
     public Bet placeBet(
@@ -86,6 +90,14 @@ public class BetServiceImpl implements BetService {
         bet.setPayout(BigDecimal.ZERO);
 
         Bet saved = betRepository.save(bet);
+
+        WalletTransaction transaction = new WalletTransaction();
+        transaction.setPlayer(player);
+        transaction.setType(WalletTransactionType.BET);
+        transaction.setAmount(amount);
+        transaction.setBalanceAfter(player.getBalance());
+        transaction.setReferenceId(saved.getId());
+        walletTransactionRepository.save(transaction);
 
         eventPublisher.publishEvent(
                 new GameEvent(
