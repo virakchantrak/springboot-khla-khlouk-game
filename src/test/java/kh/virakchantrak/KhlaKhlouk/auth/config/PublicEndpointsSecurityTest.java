@@ -26,7 +26,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest(
         controllers = {AuthController.class, PlayerController.class},
-        properties = {"jwt.secret=test-secret", "jwt.expiration=3600000"}
+        properties = {"jwt.secret=rSwGVXwk4Laqibfv+DEuqYVLEAhuK5MV5E0hgEqZCW528T9WsS633m0gQX5skNX3", "jwt.expiration=3600000"}
 )
 @Import(SecurityConfig.class)
 class PublicEndpointsSecurityTest {
