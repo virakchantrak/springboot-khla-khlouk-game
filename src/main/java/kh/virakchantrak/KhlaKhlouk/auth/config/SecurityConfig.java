@@ -68,8 +68,8 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/v1/auth/**",
                                 "/api/v1/players",
-                                "/ws/**",
-                                "/ws-test.html")
+                                "/ws/**"
+                        )
                         .permitAll()
                         .anyRequest().authenticated()
                 )
