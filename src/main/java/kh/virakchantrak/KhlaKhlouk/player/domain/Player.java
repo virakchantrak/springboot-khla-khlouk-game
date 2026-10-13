@@ -2,6 +2,8 @@ package kh.virakchantrak.KhlaKhlouk.player.domain;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -36,6 +38,10 @@ public class Player {
 
     @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal balance;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private PlayerRole role = PlayerRole.PLAYER;
 
     @Version
     private Long version;

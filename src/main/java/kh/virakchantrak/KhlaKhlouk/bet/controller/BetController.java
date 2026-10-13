@@ -1,16 +1,19 @@
 package kh.virakchantrak.KhlaKhlouk.bet.controller;
 
 import jakarta.validation.Valid;
+import kh.virakchantrak.KhlaKhlouk.auth.service.CurrentPlayerService;
 import kh.virakchantrak.KhlaKhlouk.bet.controller.dto.BetResponse;
 import kh.virakchantrak.KhlaKhlouk.bet.controller.dto.PlaceBetRequest;
 import kh.virakchantrak.KhlaKhlouk.bet.domain.Bet;
 import kh.virakchantrak.KhlaKhlouk.bet.service.BetService;
+import kh.virakchantrak.KhlaKhlouk.common.exception.BusinessException;
 import kh.virakchantrak.KhlaKhlouk.common.response.PageResponse;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.NonNull;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -27,6 +30,7 @@ import java.util.UUID;
 public class BetController {
 
     private final BetService betService;
+    private final CurrentPlayerService currentPlayerService;
 
     @PreAuthorize("hasRole('PLAYER')")
     @PostMapping("/games/{gameId}/bets")
@@ -48,6 +52,14 @@ public class BetController {
             @PathVariable UUID playerId,
             @PageableDefault(size = 10) Pageable pageable
     ) {
+        if (!playerId.equals(currentPlayerService.getPlayerId())) {
+            throw new BusinessException(
+                    "ACCESS_DENIED",
+                    "You can only view your own bets",
+                    HttpStatus.FORBIDDEN
+            );
+        }
+
         Page<Bet> bets = betService.getPlayerBets(
                 playerId,
                 pageable
