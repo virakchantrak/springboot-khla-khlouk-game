@@ -30,8 +30,7 @@ public class PlayerController {
     ) {
         Player player = playerService.createPlayer(
                 request.username(),
-                request.password(),
-                request.initialBalance()
+                request.password()
         );
 
         return toResponse(player);
