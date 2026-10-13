@@ -2,6 +2,7 @@ package kh.virakchantrak.KhlaKhlouk.game.domain;
 
 import org.springframework.stereotype.Component;
 
+import java.security.SecureRandom;
 import java.util.Random;
 
 @Component
@@ -10,7 +11,7 @@ public class Dice {
     private final Random random;
 
     public Dice() {
-        this(new Random());
+        this(new SecureRandom());
     }
 
     Dice(Random random) {

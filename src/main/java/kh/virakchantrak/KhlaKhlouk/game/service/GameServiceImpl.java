@@ -86,7 +86,7 @@ public class GameServiceImpl implements GameService {
     @Override
     public GameResult rollGame(UUID gameId) {
 
-        Game game = getGameById(gameId);
+        Game game = getGameForUpdate(gameId);
 
         if (game.getStatus() != GameStatus.BETTING) {
             throw new BusinessException(
@@ -190,6 +190,16 @@ public class GameServiceImpl implements GameService {
 
     private Game getGameById(UUID gameId) {
         return gameRepository.findById(gameId)
+                .orElseThrow(() ->
+                        new BusinessException(
+                                "GAME_NOT_FOUND",
+                                "Game not found",
+                                HttpStatus.NOT_FOUND
+                        ));
+    }
+
+    private Game getGameForUpdate(UUID gameId) {
+        return gameRepository.findByIdForUpdate(gameId)
                 .orElseThrow(() ->
                         new BusinessException(
                                 "GAME_NOT_FOUND",

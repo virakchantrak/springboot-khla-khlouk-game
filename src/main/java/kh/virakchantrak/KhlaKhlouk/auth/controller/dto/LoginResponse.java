@@ -1,4 +1,4 @@
-package kh.virakchantrak.KhlaKhlouk.auth.dto;
+package kh.virakchantrak.KhlaKhlouk.auth.controller.dto;
 
 public class LoginResponse {
 

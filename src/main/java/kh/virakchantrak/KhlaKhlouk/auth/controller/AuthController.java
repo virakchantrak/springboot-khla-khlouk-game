@@ -1,8 +1,9 @@
 package kh.virakchantrak.KhlaKhlouk.auth.controller;
 
-import kh.virakchantrak.KhlaKhlouk.auth.dto.ChangePasswordRequest;
-import kh.virakchantrak.KhlaKhlouk.auth.dto.LoginRequest;
-import kh.virakchantrak.KhlaKhlouk.auth.dto.LoginResponse;
+import jakarta.validation.Valid;
+import kh.virakchantrak.KhlaKhlouk.auth.controller.dto.ChangePasswordRequest;
+import kh.virakchantrak.KhlaKhlouk.auth.controller.dto.LoginRequest;
+import kh.virakchantrak.KhlaKhlouk.auth.controller.dto.LoginResponse;
 import kh.virakchantrak.KhlaKhlouk.auth.service.AuthService;
 import kh.virakchantrak.KhlaKhlouk.auth.service.JwtService;
 import lombok.RequiredArgsConstructor;
@@ -29,7 +30,7 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/login")
-    public LoginResponse login(@RequestBody LoginRequest request) {
+    public LoginResponse login(@Valid @RequestBody LoginRequest request) {
 
         Authentication authentication =
                 authenticationManager.authenticate(
@@ -50,7 +51,7 @@ public class AuthController {
     @PutMapping("/password")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void changePassword(
-            @RequestBody ChangePasswordRequest request
+            @Valid @RequestBody ChangePasswordRequest request
     ) {
         authService.changePassword(request);
     }

@@ -46,7 +46,7 @@ public class BetServiceImpl implements BetService {
     ) {
         UUID playerId = currentPlayerService.getPlayerId();
 
-        Game game = gameRepository.findById(gameId)
+        Game game = gameRepository.findByIdForShare(gameId)
                 .orElseThrow(() ->
                         new BusinessException("GAME_NOT_FOUND", "Game not found", HttpStatus.NOT_FOUND));
 

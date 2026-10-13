@@ -1,6 +1,6 @@
 package kh.virakchantrak.KhlaKhlouk.auth.service;
 
-import kh.virakchantrak.KhlaKhlouk.auth.dto.ChangePasswordRequest;
+import kh.virakchantrak.KhlaKhlouk.auth.controller.dto.ChangePasswordRequest;
 import kh.virakchantrak.KhlaKhlouk.common.exception.BusinessException;
 import kh.virakchantrak.KhlaKhlouk.player.domain.Player;
 import kh.virakchantrak.KhlaKhlouk.player.repository.PlayerRepository;
