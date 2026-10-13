@@ -4,6 +4,7 @@ import kh.virakchantrak.KhlaKhlouk.common.exception.BusinessException;
 import kh.virakchantrak.KhlaKhlouk.player.domain.Player;
 import kh.virakchantrak.KhlaKhlouk.player.repository.PlayerRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -19,12 +20,13 @@ public class PlayerServiceImpl implements PlayerService {
 
     private final PlayerRepository playerRepository;
     private final PasswordEncoder passwordEncoder;
+    @Value("${app.player.starting-balance:1000.00}")
+    private BigDecimal startingBalance;
 
     @Override
     public Player createPlayer(
             String username,
-            String password,
-            BigDecimal initialBalance
+            String password
     ) {
         if (playerRepository.findByUsername(username).isPresent()) {
             throw new BusinessException(
@@ -34,19 +36,11 @@ public class PlayerServiceImpl implements PlayerService {
             );
         }
 
-        if (initialBalance.compareTo(BigDecimal.ZERO) < 0) {
-            throw new BusinessException(
-                    "INITIAL_BALANCE_NEGATIVE",
-                    "Initial balance cannot be negative",
-                    HttpStatus.BAD_REQUEST
-            );
-        }
-
         Player player = new Player();
 
         player.setUsername(username);
         player.setPasswordHash(passwordEncoder.encode(password));
-        player.setBalance(initialBalance);
+        player.setBalance(startingBalance);
 
         return playerRepository.save(player);
     }
