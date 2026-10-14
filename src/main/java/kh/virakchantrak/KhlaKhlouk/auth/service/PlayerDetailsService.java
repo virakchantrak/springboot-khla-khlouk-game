@@ -40,7 +40,8 @@ public class PlayerDetailsService implements UserDetailsService {
                 player.getId(),
                 player.getUsername(),
                 player.getPasswordHash(),
-                authorities
+                authorities,
+                player.getTokenVersion()
         );
     }
 }

@@ -43,6 +43,9 @@ public class Player {
     @Column(nullable = false)
     private PlayerRole role = PlayerRole.PLAYER;
 
+    @Column(nullable = false)
+    private int tokenVersion;
+
     @Version
     private Long version;
 

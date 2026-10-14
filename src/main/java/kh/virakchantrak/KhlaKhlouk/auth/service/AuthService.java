@@ -46,5 +46,8 @@ public class AuthService {
         player.setPasswordHash(
                 passwordEncoder.encode(request.getNewPassword())
         );
+
+        // ends every existing session: older tokens carry the old version
+        player.setTokenVersion(player.getTokenVersion() + 1);
     }
 }

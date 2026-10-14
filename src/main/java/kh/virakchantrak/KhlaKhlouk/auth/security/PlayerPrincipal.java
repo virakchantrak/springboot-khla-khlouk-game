@@ -12,9 +12,13 @@ public class PlayerPrincipal implements UserDetails {
 
     @Getter
     private final UUID playerId;
+
     private final String username;
     private final String password;
     private final Collection<? extends GrantedAuthority> authorities;
+
+    @Getter
+    private final int tokenVersion;
 
     public PlayerPrincipal(
             UUID playerId,
@@ -22,10 +26,21 @@ public class PlayerPrincipal implements UserDetails {
             String password,
             Collection<? extends GrantedAuthority> authorities
     ) {
+        this(playerId, username, password, authorities, 0);
+    }
+
+    public PlayerPrincipal(
+            UUID playerId,
+            String username,
+            String password,
+            Collection<? extends GrantedAuthority> authorities,
+            int tokenVersion
+    ) {
         this.playerId = playerId;
         this.username = username;
         this.password = password;
         this.authorities = authorities;
+        this.tokenVersion = tokenVersion;
     }
 
     @Override

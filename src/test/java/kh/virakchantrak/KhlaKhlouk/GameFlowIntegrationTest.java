@@ -24,6 +24,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -33,8 +34,42 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Transactional
 class GameFlowIntegrationTest {
 
-    @Autowired MockMvc mockMvc;
-    @Autowired PlayerRepository playerRepository;
+    @Autowired
+    MockMvc mockMvc;
+    @Autowired
+    PlayerRepository playerRepository;
+
+    @Test
+    void oldTokenStopsWorkingAfterPasswordChange() throws Exception {
+        String username = "changer-" + UUID.randomUUID();
+        register(username);
+        String oldToken = login(username);
+
+        mockMvc.perform(put("/api/v1/auth/password")
+                        .header("Authorization", bearer(oldToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"currentPassword\":\"secret123\","
+                                + "\"newPassword\":\"new-secret-456\"}"))
+                .andExpect(status().isNoContent());
+
+        // the old token no longer works
+        mockMvc.perform(get("/api/v1/players/me")
+                        .header("Authorization", bearer(oldToken)))
+                .andExpect(status().isUnauthorized());
+
+        // logging in with the new password gives a working token
+        MvcResult result = mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\":\"" + username
+                                + "\",\"password\":\"new-secret-456\"}"))
+                .andExpect(status().isOk())
+                .andReturn();
+        String newToken = JsonPath.read(body(result), "$.accessToken");
+
+        mockMvc.perform(get("/api/v1/players/me")
+                        .header("Authorization", bearer(newToken)))
+                .andExpect(status().isOk());
+    }
 
     @Test
     void loginIsBlockedAfterFiveWrongPasswords() throws Exception {

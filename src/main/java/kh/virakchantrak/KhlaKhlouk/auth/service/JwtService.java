@@ -5,6 +5,7 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import kh.virakchantrak.KhlaKhlouk.auth.config.JwtProperties;
+import kh.virakchantrak.KhlaKhlouk.auth.security.PlayerPrincipal;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
@@ -17,6 +18,8 @@ import java.util.Date;
 @RequiredArgsConstructor
 public class JwtService {
 
+    private static final String TOKEN_VERSION_CLAIM = "ver";
+
     private final JwtProperties jwtProperties;
 
     public String generateToken(UserDetails userDetails) {
@@ -24,6 +27,7 @@ public class JwtService {
 
         return Jwts.builder()
                 .subject(userDetails.getUsername())
+                .claim(TOKEN_VERSION_CLAIM, tokenVersionOf(userDetails))
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(
                         now.plusMillis(jwtProperties.expiration())
@@ -40,12 +44,23 @@ public class JwtService {
             String token,
             UserDetails userDetails
     ) {
-        String username = extractUsername(token);
+        Claims claims = extractAllClaims(token);
 
-        return username.equals(userDetails.getUsername())
-                && !extractAllClaims(token)
-                .getExpiration()
-                .before(new Date());
+        return userDetails.getUsername().equals(claims.getSubject())
+                && !claims.getExpiration().before(new Date())
+                && tokenVersionOf(claims) == tokenVersionOf(userDetails);
+    }
+
+    // tokens issued before this feature have no version claim: treat as 0
+    private int tokenVersionOf(Claims claims) {
+        Integer version = claims.get(TOKEN_VERSION_CLAIM, Integer.class);
+        return version == null ? 0 : version;
+    }
+
+    private int tokenVersionOf(UserDetails userDetails) {
+        return userDetails instanceof PlayerPrincipal principal
+                ? principal.getTokenVersion()
+                : 0;
     }
 
     private Claims extractAllClaims(String token) {
