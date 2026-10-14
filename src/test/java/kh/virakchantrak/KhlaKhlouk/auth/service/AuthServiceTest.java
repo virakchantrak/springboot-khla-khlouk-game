@@ -9,6 +9,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.Optional;
@@ -16,6 +17,10 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -24,6 +29,7 @@ class AuthServiceTest {
     @Mock PlayerRepository playerRepository;
     @Mock PasswordEncoder passwordEncoder;
     @Mock CurrentPlayerService currentPlayerService;
+    @Mock LoginAttemptService loginAttemptService;
 
     @InjectMocks AuthService authService;
 
@@ -55,6 +61,9 @@ class AuthServiceTest {
 
         assertThat(player.getPasswordHash()).isEqualTo("new-hash");
         assertThat(player.getTokenVersion()).isEqualTo(1);
+
+        verify(loginAttemptService).registerPasswordChangeAttempt(playerId);
+        verify(loginAttemptService).recordPasswordChangeSuccess(playerId);
     }
 
     @Test
@@ -72,5 +81,27 @@ class AuthServiceTest {
 
         assertThat(player.getPasswordHash()).isEqualTo("old-hash");
         assertThat(player.getTokenVersion()).isZero();
+
+        verify(loginAttemptService).registerPasswordChangeAttempt(playerId);
+        verify(loginAttemptService, never()).recordPasswordChangeSuccess(playerId);
+    }
+
+    @Test
+    void blockedAttemptNeverChecksThePassword() {
+        Player player = playerWithHash("old-hash");
+
+        when(currentPlayerService.getPlayerId()).thenReturn(playerId);
+        doThrow(new BusinessException(
+                "TOO_MANY_PASSWORD_ATTEMPTS", "Too many attempts",
+                HttpStatus.TOO_MANY_REQUESTS))
+                .when(loginAttemptService).registerPasswordChangeAttempt(playerId);
+
+        assertThatThrownBy(() ->
+                authService.changePassword(request("old-pass", "new-pass-1")))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("code", "TOO_MANY_PASSWORD_ATTEMPTS");
+
+        verifyNoInteractions(passwordEncoder);
+        assertThat(player.getPasswordHash()).isEqualTo("old-hash");
     }
 }

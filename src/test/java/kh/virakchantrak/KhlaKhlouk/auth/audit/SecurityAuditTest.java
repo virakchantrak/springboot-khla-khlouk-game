@@ -131,4 +131,15 @@ class SecurityAuditTest {
 
         assertThat(onlyMessage()).doesNotContain("\n");
     }
+
+    @Test
+    void blockedPasswordChangeIsAWarning() {
+        UUID id = UUID.randomUUID();
+
+        SecurityAudit.passwordChangeBlocked(id);
+
+        assertThat(appender.list.get(0).getLevel()).isEqualTo(Level.WARN);
+        assertThat(onlyMessage())
+                .isEqualTo("event=PASSWORD_CHANGE_BLOCKED player=\"" + id + "\"");
+    }
 }

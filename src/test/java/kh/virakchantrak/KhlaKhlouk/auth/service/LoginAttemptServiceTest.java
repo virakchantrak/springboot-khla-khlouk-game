@@ -9,6 +9,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -103,6 +104,64 @@ class LoginAttemptServiceTest {
         attempts("1.1.1.1", "alice", 5);
 
         assertThatCode(() -> service.registerAttempt("1.1.1.1", "bob"))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void passwordChangeAllowsFiveAttemptsThenBlocks() {
+        UUID player = UUID.randomUUID();
+
+        for (int i = 0; i < 5; i++) {
+            service.registerPasswordChangeAttempt(player);
+        }
+
+        assertThatThrownBy(() -> service.registerPasswordChangeAttempt(player))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("code", "TOO_MANY_PASSWORD_ATTEMPTS")
+                .hasFieldOrPropertyWithValue("status", HttpStatus.TOO_MANY_REQUESTS);
+    }
+
+    @Test
+    void passwordChangeSuccessResetsTheCounter() {
+        UUID player = UUID.randomUUID();
+
+        for (int i = 0; i < 4; i++) {
+            service.registerPasswordChangeAttempt(player);
+        }
+        service.recordPasswordChangeSuccess(player);
+
+        assertThatCode(() -> {
+            for (int i = 0; i < 4; i++) {
+                service.registerPasswordChangeAttempt(player);
+            }
+        }).doesNotThrowAnyException();
+    }
+
+    @Test
+    void passwordChangeLimitIsPerPlayerAndExpires() {
+        UUID attacked = UUID.randomUUID();
+        UUID other = UUID.randomUUID();
+
+        for (int i = 0; i < 5; i++) {
+            service.registerPasswordChangeAttempt(attacked);
+        }
+
+        assertThatThrownBy(() -> service.registerPasswordChangeAttempt(attacked))
+                .isInstanceOf(BusinessException.class);
+        assertThatCode(() -> service.registerPasswordChangeAttempt(other))
+                .doesNotThrowAnyException();
+
+        clock.advance(Duration.ofMinutes(15));
+        assertThatCode(() -> service.registerPasswordChangeAttempt(attacked))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void loginAttemptsDoNotUseUpThePasswordChangeBudget() {
+        UUID player = UUID.randomUUID();
+        attempts("1.1.1.1", "alice", 5);
+
+        assertThatCode(() -> service.registerPasswordChangeAttempt(player))
                 .doesNotThrowAnyException();
     }
 }

@@ -326,4 +326,32 @@ class GameFlowIntegrationTest {
     private String body(MvcResult result) throws Exception {
         return result.getResponse().getContentAsString();
     }
+
+    @Test
+    void passwordChangeIsBlockedAfterFiveWrongCurrentPasswords() throws Exception {
+        String username = "guesser-" + UUID.randomUUID();
+        register(username);
+        String token = login(username);
+
+        for (int i = 0; i < 5; i++) {
+            mockMvc.perform(put("/api/v1/auth/password")
+                            .header("Authorization", bearer(token))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"currentPassword\":\"wrong-" + i + "\","
+                                    + "\"newPassword\":\"new-secret-456\"}"))
+                    .andExpect(status().isBadRequest());
+        }
+
+        // the 6th attempt is blocked, even with the correct current password
+        mockMvc.perform(put("/api/v1/auth/password")
+                        .header("Authorization", bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"currentPassword\":\"secret123\","
+                                + "\"newPassword\":\"new-secret-456\"}"))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.code").value("TOO_MANY_PASSWORD_ATTEMPTS"));
+
+        // nothing changed: the original password still logs in
+        login(username);
+    }
 }

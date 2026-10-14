@@ -8,6 +8,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Locale;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Service
@@ -19,6 +20,8 @@ public class LoginAttemptService {
 
     private static final int PURGE_THRESHOLD = 10_000;
     private static final int MAX_USERNAME_KEY_LENGTH = 100;
+
+    static final int MAX_PASSWORD_CHANGE_ATTEMPTS = 5;
 
     private record Window(int count, Instant start) {
     }
@@ -60,6 +63,25 @@ public class LoginAttemptService {
         attempts.remove(accountKey(ip, username));
         attempts.computeIfPresent(ipKey(ip), (key, window) ->
                 window.count() <= 1 ? null : new Window(window.count() - 1, window.start()));
+    }
+
+    /** Counts a password-change attempt for this player; throws 429 when over the limit. */
+    public void registerPasswordChangeAttempt(UUID playerId) {
+        int count = increment("pwchange:" + playerId);
+
+        purgeExpiredIfLarge();
+
+        if (count > MAX_PASSWORD_CHANGE_ATTEMPTS) {
+            throw new BusinessException(
+                    "TOO_MANY_PASSWORD_ATTEMPTS",
+                    "Too many password change attempts. Please try again later.",
+                    HttpStatus.TOO_MANY_REQUESTS
+            );
+        }
+    }
+
+    public void recordPasswordChangeSuccess(UUID playerId) {
+        attempts.remove("pwchange:" + playerId);
     }
 
     private int increment(String key) {

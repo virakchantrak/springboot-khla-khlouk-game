@@ -65,6 +65,10 @@ public final class SecurityAudit {
                 clean(command), clean(destination), clean(reason));
     }
 
+    public static void passwordChangeBlocked(UUID playerId) {
+        log.warn("event=PASSWORD_CHANGE_BLOCKED player=\"{}\"", clean(playerId));
+    }
+
     static String clean(UUID id) {
         return clean(id == null ? null : id.toString());
     }

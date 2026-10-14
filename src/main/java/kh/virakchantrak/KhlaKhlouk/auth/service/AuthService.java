@@ -19,6 +19,7 @@ public class AuthService {
     private final PlayerRepository playerRepository;
     private final PasswordEncoder passwordEncoder;
     private final CurrentPlayerService currentPlayerService;
+    private final LoginAttemptService loginAttemptService;
 
     @Transactional
     public void changePassword(
@@ -26,6 +27,14 @@ public class AuthService {
     ) {
         PasswordPolicy.checkLength(request.getNewPassword());
         UUID playerId = currentPlayerService.getPlayerId();
+
+        try {
+            loginAttemptService.registerPasswordChangeAttempt(playerId);
+        } catch (BusinessException e) {
+            SecurityAudit.passwordChangeBlocked(playerId);
+            throw e;
+        }
+
         Player player = playerRepository.findById(playerId)
                 .orElseThrow(() -> new BusinessException(
                         "PLAYER_NOT_FOUND",
@@ -51,6 +60,8 @@ public class AuthService {
 
         // ends every existing session: older tokens carry the old version
         player.setTokenVersion(player.getTokenVersion() + 1);
+
+        loginAttemptService.recordPasswordChangeSuccess(playerId);
 
         SecurityAudit.passwordChanged(playerId);
     }
