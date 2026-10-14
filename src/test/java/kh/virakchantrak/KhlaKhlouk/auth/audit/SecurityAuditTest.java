@@ -8,6 +8,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
 
+import java.util.UUID;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 class SecurityAuditTest {
@@ -90,5 +92,43 @@ class SecurityAuditTest {
 
         assertThat(onlyMessage()).isEqualTo(
                 "event=INVALID_TOKEN ip=\"1.1.1.1\" method=\"GET\" path=\"/api/v1/players/me\"");
+    }
+
+    @Test
+    void registrationIsLoggedAsInfo() {
+        SecurityAudit.playerRegistered("1.2.3.4", "alice");
+
+        assertThat(appender.list.get(0).getLevel()).isEqualTo(Level.INFO);
+        assertThat(onlyMessage())
+                .isEqualTo("event=PLAYER_REGISTERED ip=\"1.2.3.4\" username=\"alice\"");
+    }
+
+    @Test
+    void failedPasswordChangeIsAWarningAndNamesThePlayerById() {
+        UUID id = UUID.randomUUID();
+
+        SecurityAudit.passwordChangeFailed(id);
+
+        assertThat(appender.list.get(0).getLevel()).isEqualTo(Level.WARN);
+        assertThat(onlyMessage())
+                .isEqualTo("event=PASSWORD_CHANGE_FAILED player=\"" + id + "\"");
+    }
+
+    @Test
+    void adminActionNamesWhoDidWhatOnWhich() {
+        UUID admin = UUID.randomUUID();
+        UUID game = UUID.randomUUID();
+
+        SecurityAudit.adminAction(admin, "ROLL_GAME", game);
+
+        assertThat(onlyMessage()).isEqualTo(
+                "event=ADMIN_ACTION player=\"" + admin + "\" action=\"ROLL_GAME\" game=\"" + game + "\"");
+    }
+
+    @Test
+    void webSocketDestinationFromAClientIsCleaned() {
+        SecurityAudit.websocketRejected("SEND", "/topic/x\nevent=FAKE", "not allowed");
+
+        assertThat(onlyMessage()).doesNotContain("\n");
     }
 }

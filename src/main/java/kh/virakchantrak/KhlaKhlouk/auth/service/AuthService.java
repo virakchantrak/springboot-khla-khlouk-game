@@ -1,5 +1,6 @@
 package kh.virakchantrak.KhlaKhlouk.auth.service;
 
+import kh.virakchantrak.KhlaKhlouk.auth.audit.SecurityAudit;
 import kh.virakchantrak.KhlaKhlouk.auth.controller.dto.ChangePasswordRequest;
 import kh.virakchantrak.KhlaKhlouk.common.exception.BusinessException;
 import kh.virakchantrak.KhlaKhlouk.player.domain.Player;
@@ -36,6 +37,7 @@ public class AuthService {
                 request.getCurrentPassword(),
                 player.getPasswordHash()
         )) {
+            SecurityAudit.passwordChangeFailed(playerId);
             throw new BusinessException(
                     "INVALID_CURRENT_PASSWORD",
                     "Current password is incorrect",
@@ -49,5 +51,7 @@ public class AuthService {
 
         // ends every existing session: older tokens carry the old version
         player.setTokenVersion(player.getTokenVersion() + 1);
+
+        SecurityAudit.passwordChanged(playerId);
     }
 }

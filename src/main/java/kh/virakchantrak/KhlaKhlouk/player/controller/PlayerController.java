@@ -1,6 +1,8 @@
 package kh.virakchantrak.KhlaKhlouk.player.controller;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import kh.virakchantrak.KhlaKhlouk.auth.audit.SecurityAudit;
 import kh.virakchantrak.KhlaKhlouk.auth.service.CurrentPlayerService;
 import kh.virakchantrak.KhlaKhlouk.common.exception.BusinessException;
 import kh.virakchantrak.KhlaKhlouk.player.controller.dto.CreatePlayerRequest;
@@ -28,11 +30,17 @@ public class PlayerController {
 
     @PostMapping
     public PlayerResponse createPlayer(
-            @Valid @RequestBody CreatePlayerRequest request
+            @Valid @RequestBody CreatePlayerRequest request,
+            HttpServletRequest httpRequest
     ) {
         Player player = playerService.createPlayer(
                 request.username(),
                 request.password()
+        );
+
+        SecurityAudit.playerRegistered(
+                httpRequest.getRemoteAddr(),
+                player.getUsername()
         );
 
         return toResponse(player);

@@ -1,5 +1,7 @@
 package kh.virakchantrak.KhlaKhlouk.websocket;
 
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import io.jsonwebtoken.JwtException;
 import kh.virakchantrak.KhlaKhlouk.auth.security.PlayerPrincipal;
 import kh.virakchantrak.KhlaKhlouk.auth.service.JwtService;
@@ -8,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.slf4j.LoggerFactory;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
 import org.springframework.messaging.MessageDeliveryException;
@@ -132,5 +135,30 @@ class WebSocketAuthInterceptorTest {
         StompHeaderAccessor after =
                 MessageHeaderAccessor.getAccessor(connect, StompHeaderAccessor.class);
         assertThat(after.getUser()).isNotNull();
+    }
+
+    @Test
+    void rejectedWebSocketMessagesAreAudited() {
+        ch.qos.logback.classic.Logger logger =
+                (ch.qos.logback.classic.Logger) LoggerFactory.getLogger("SECURITY_AUDIT");
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+
+        try {
+            Message<?> forged = stompMessage(
+                    StompCommand.SEND, gameTopic, loggedInUser(), null);
+
+            assertThatThrownBy(() -> interceptor().preSend(forged, channel))
+                    .isInstanceOf(MessageDeliveryException.class);
+
+            assertThat(appender.list)
+                    .extracting(ILoggingEvent::getFormattedMessage)
+                    .anyMatch(m -> m.contains("event=WEBSOCKET_REJECTED")
+                            && m.contains("command=\"SEND\"")
+                            && m.contains(gameTopic));
+        } finally {
+            logger.detachAppender(appender);
+        }
     }
 }

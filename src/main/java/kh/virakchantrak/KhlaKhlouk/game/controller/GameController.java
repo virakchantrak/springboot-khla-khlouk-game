@@ -1,5 +1,7 @@
 package kh.virakchantrak.KhlaKhlouk.game.controller;
 
+import kh.virakchantrak.KhlaKhlouk.auth.audit.SecurityAudit;
+import kh.virakchantrak.KhlaKhlouk.auth.service.CurrentPlayerService;
 import kh.virakchantrak.KhlaKhlouk.common.response.PageResponse;
 import kh.virakchantrak.KhlaKhlouk.game.controller.dto.GameDetailsResponse;
 import kh.virakchantrak.KhlaKhlouk.game.controller.dto.GameResponse;
@@ -28,12 +30,15 @@ import java.util.UUID;
 public class GameController {
 
     private final GameService gameService;
+    private final CurrentPlayerService currentPlayerService;
 
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
     public GameResponse createGame() {
-
         Game game = gameService.createGame();
+
+        SecurityAudit.adminAction(
+                currentPlayerService.getPlayerId(), "CREATE_GAME", game.getId());
 
         return toResponse(game);
     }
@@ -41,8 +46,10 @@ public class GameController {
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/{gameId}/betting")
     public GameResponse bettingGame(@PathVariable UUID gameId) {
-
         Game game = gameService.startBetting(gameId);
+
+        SecurityAudit.adminAction(
+                currentPlayerService.getPlayerId(), "START_BETTING", game.getId());
 
         return toResponse(game);
     }
@@ -53,6 +60,9 @@ public class GameController {
             @PathVariable UUID gameId
     ) {
         GameResult result = gameService.rollGame(gameId);
+
+        SecurityAudit.adminAction(
+                currentPlayerService.getPlayerId(), "ROLL_GAME", gameId);
 
         return new RollResponse(
                 result.getGame().getId(),

@@ -1,6 +1,7 @@
 package kh.virakchantrak.KhlaKhlouk.websocket;
 
 import io.jsonwebtoken.JwtException;
+import kh.virakchantrak.KhlaKhlouk.auth.audit.SecurityAudit;
 import kh.virakchantrak.KhlaKhlouk.auth.security.PlayerPrincipal;
 import kh.virakchantrak.KhlaKhlouk.auth.service.JwtService;
 import kh.virakchantrak.KhlaKhlouk.auth.service.PlayerDetailsService;
@@ -44,8 +45,7 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
         switch (accessor.getCommand()) {
             case CONNECT -> authenticate(accessor);
             case SUBSCRIBE -> checkSubscription(accessor);
-            case SEND -> throw new MessageDeliveryException(
-                    "Clients are not allowed to send messages");
+            case SEND -> throw reject(accessor, "Clients are not allowed to send messages");
             default -> {
                 // DISCONNECT, UNSUBSCRIBE, ACK... nothing to check
             }
@@ -58,7 +58,7 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
         String authorization = accessor.getFirstNativeHeader("Authorization");
 
         if (authorization == null || !authorization.startsWith("Bearer ")) {
-            throw new MessageDeliveryException("Missing WebSocket authorization");
+            throw reject(accessor, "Missing WebSocket authorization");
         }
 
         String token = authorization.substring(7);
@@ -70,26 +70,36 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
                     .loadUserByUsername(username);
 
             if (!jwtService.isTokenValid(token, player)) {
-                throw new MessageDeliveryException("Invalid or expired token");
+                throw reject(accessor, "Invalid or expired token");
             }
 
             accessor.setUser(new UsernamePasswordAuthenticationToken(
                     player, null, player.getAuthorities()));
 
         } catch (JwtException | IllegalArgumentException | UsernameNotFoundException e) {
-            throw new MessageDeliveryException("Invalid or expired token");
+            throw reject(accessor, "Invalid or expired token");
         }
     }
 
     private void checkSubscription(StompHeaderAccessor accessor) {
         if (accessor.getUser() == null) {
-            throw new MessageDeliveryException("Not authenticated");
+            throw reject(accessor, "Not authenticated");
         }
 
         String destination = accessor.getDestination();
 
         if (destination == null || !GAME_TOPIC.matcher(destination).matches()) {
-            throw new MessageDeliveryException("Subscription not allowed");
+            throw reject(accessor, "Subscription not allowed");
         }
+    }
+
+    // logs the rejection, then gives back the exception to throw
+    private MessageDeliveryException reject(StompHeaderAccessor accessor, String reason) {
+        SecurityAudit.websocketRejected(
+                accessor.getCommand() != null ? accessor.getCommand().name() : null,
+                accessor.getDestination(),
+                reason
+        );
+        return new MessageDeliveryException(reason);
     }
 }

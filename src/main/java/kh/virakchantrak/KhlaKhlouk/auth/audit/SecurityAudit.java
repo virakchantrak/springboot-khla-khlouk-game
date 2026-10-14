@@ -3,6 +3,8 @@ package kh.virakchantrak.KhlaKhlouk.auth.audit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.UUID;
+
 /**
  * One place for security-relevant log lines.
  * There is deliberately no parameter for passwords or tokens.
@@ -38,6 +40,33 @@ public final class SecurityAudit {
     public static void invalidToken(String ip, String method, String path) {
         log.warn("event=INVALID_TOKEN ip=\"{}\" method=\"{}\" path=\"{}\"",
                 clean(ip), clean(method), clean(path));
+    }
+
+    public static void playerRegistered(String ip, String username) {
+        log.info("event=PLAYER_REGISTERED ip=\"{}\" username=\"{}\"",
+                clean(ip), clean(username));
+    }
+
+    public static void passwordChanged(UUID playerId) {
+        log.info("event=PASSWORD_CHANGED player=\"{}\"", clean(playerId));
+    }
+
+    public static void passwordChangeFailed(UUID playerId) {
+        log.warn("event=PASSWORD_CHANGE_FAILED player=\"{}\"", clean(playerId));
+    }
+
+    public static void adminAction(UUID adminId, String action, UUID gameId) {
+        log.info("event=ADMIN_ACTION player=\"{}\" action=\"{}\" game=\"{}\"",
+                clean(adminId), clean(action), clean(gameId));
+    }
+
+    public static void websocketRejected(String command, String destination, String reason) {
+        log.warn("event=WEBSOCKET_REJECTED command=\"{}\" destination=\"{}\" reason=\"{}\"",
+                clean(command), clean(destination), clean(reason));
+    }
+
+    static String clean(UUID id) {
+        return clean(id == null ? null : id.toString());
     }
 
     // stops line breaks and quotes in user input from forging extra log lines

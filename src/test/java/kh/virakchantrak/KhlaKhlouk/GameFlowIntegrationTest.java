@@ -42,6 +42,72 @@ class GameFlowIntegrationTest {
     @Autowired
     PlayerRepository playerRepository;
 
+    private ListAppender<ILoggingEvent> captureAuditLog() {
+        ch.qos.logback.classic.Logger logger =
+                (ch.qos.logback.classic.Logger) LoggerFactory.getLogger("SECURITY_AUDIT");
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        return appender;
+    }
+
+    private void stopCapturing(ListAppender<ILoggingEvent> appender) {
+        ((ch.qos.logback.classic.Logger) LoggerFactory.getLogger("SECURITY_AUDIT"))
+                .detachAppender(appender);
+    }
+
+    @Test
+    void registrationPasswordChangesAndAdminActionsAreAudited() throws Exception {
+        ListAppender<ILoggingEvent> appender = captureAuditLog();
+
+        try {
+            String username = "audited2-" + UUID.randomUUID();
+            register(username);
+            makeAdmin(username);
+            String token = login(username);
+
+            mockMvc.perform(post("/api/v1/games")
+                            .header("Authorization", bearer(token)))
+                    .andExpect(status().isOk());
+
+            mockMvc.perform(put("/api/v1/auth/password")
+                            .header("Authorization", bearer(token))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"currentPassword\":\"wrong-current\","
+                                    + "\"newPassword\":\"new-secret-456\"}"))
+                    .andExpect(status().isBadRequest());
+
+            mockMvc.perform(put("/api/v1/auth/password")
+                            .header("Authorization", bearer(token))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"currentPassword\":\"secret123\","
+                                    + "\"newPassword\":\"new-secret-456\"}"))
+                    .andExpect(status().isNoContent());
+
+            List<String> messages = appender.list.stream()
+                    .map(ILoggingEvent::getFormattedMessage)
+                    .toList();
+
+            assertThat(messages).anyMatch(m ->
+                    m.contains("event=PLAYER_REGISTERED")
+                            && m.contains("username=\"" + username + "\""));
+            assertThat(messages).anyMatch(m ->
+                    m.contains("event=ADMIN_ACTION")
+                            && m.contains("action=\"CREATE_GAME\""));
+            assertThat(messages).anyMatch(m -> m.contains("event=PASSWORD_CHANGE_FAILED"));
+            assertThat(messages).anyMatch(m -> m.contains("event=PASSWORD_CHANGED"));
+
+            // no password ever reaches the log
+            assertThat(messages).noneMatch(m ->
+                    m.contains("wrong-current")
+                            || m.contains("new-secret-456")
+                            || m.contains("secret123"));
+
+        } finally {
+            stopCapturing(appender);
+        }
+    }
+
     @Test
     void failedLoginAndDeniedActionAreWrittenToTheAuditLog() throws Exception {
         ch.qos.logback.classic.Logger auditLogger =

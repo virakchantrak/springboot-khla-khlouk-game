@@ -1,6 +1,7 @@
 package kh.virakchantrak.KhlaKhlouk.game.controller;
 
 import kh.virakchantrak.KhlaKhlouk.auth.config.SecurityConfig;
+import kh.virakchantrak.KhlaKhlouk.auth.service.CurrentPlayerService;
 import kh.virakchantrak.KhlaKhlouk.auth.service.JwtService;
 import kh.virakchantrak.KhlaKhlouk.auth.service.PlayerDetailsService;
 import kh.virakchantrak.KhlaKhlouk.game.domain.Game;
@@ -36,6 +37,8 @@ class GameControllerSecurityTest {
 
     @MockitoBean JwtService jwtService;
     @MockitoBean PlayerDetailsService playerDetailsService;
+
+    @MockitoBean CurrentPlayerService currentPlayerService;
 
     @Test
     void createGameWithoutLoginReturns401() throws Exception {
