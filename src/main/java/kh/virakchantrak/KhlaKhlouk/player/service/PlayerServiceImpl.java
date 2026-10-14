@@ -21,7 +21,7 @@ public class PlayerServiceImpl implements PlayerService {
 
     private final PlayerRepository playerRepository;
     private final PasswordEncoder passwordEncoder;
-    @Value("${app.player.starting-balance:1000.00}")
+    @Value("${app.player.starting-balance}")
     private BigDecimal startingBalance;
 
     @Override
