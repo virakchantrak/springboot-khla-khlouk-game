@@ -1,6 +1,7 @@
 package kh.virakchantrak.KhlaKhlouk.auth.config;
 
 import jakarta.servlet.http.HttpServletResponse;
+import kh.virakchantrak.KhlaKhlouk.auth.audit.SecurityAudit;
 import kh.virakchantrak.KhlaKhlouk.auth.security.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -13,6 +14,8 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandler;
@@ -45,6 +48,16 @@ public class SecurityConfig {
     @Bean
     public AccessDeniedHandler accessDeniedHandler() {
         return (request, response, accessDeniedException) -> {
+            Authentication authentication =
+                    SecurityContextHolder.getContext().getAuthentication();
+
+            SecurityAudit.accessDenied(
+                    request.getRemoteAddr(),
+                    authentication != null ? authentication.getName() : null,
+                    request.getMethod(),
+                    request.getRequestURI()
+            );
+
             response.setStatus(HttpServletResponse.SC_FORBIDDEN);
             response.setContentType("application/json");
             response.getWriter().write("""

@@ -1,11 +1,14 @@
 package kh.virakchantrak.KhlaKhlouk;
 
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.jayway.jsonpath.JsonPath;
 import kh.virakchantrak.KhlaKhlouk.game.domain.Symbol;
 import kh.virakchantrak.KhlaKhlouk.player.domain.Player;
 import kh.virakchantrak.KhlaKhlouk.player.domain.PlayerRole;
 import kh.virakchantrak.KhlaKhlouk.player.repository.PlayerRepository;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -38,6 +41,51 @@ class GameFlowIntegrationTest {
     MockMvc mockMvc;
     @Autowired
     PlayerRepository playerRepository;
+
+    @Test
+    void failedLoginAndDeniedActionAreWrittenToTheAuditLog() throws Exception {
+        ch.qos.logback.classic.Logger auditLogger =
+                (ch.qos.logback.classic.Logger) LoggerFactory.getLogger("SECURITY_AUDIT");
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        auditLogger.addAppender(appender);
+
+        try {
+            String username = "audited-" + UUID.randomUUID();
+            register(username);
+            String token = login(username);
+
+            // a wrong password from a known address
+            loginFrom("203.0.113.55", username, "wrong-password")
+                    .andExpect(status().isUnauthorized());
+
+            // a normal player trying an admin-only action
+            mockMvc.perform(post("/api/v1/games")
+                            .header("Authorization", bearer(token)))
+                    .andExpect(status().isForbidden());
+
+            List<String> messages = appender.list.stream()
+                    .map(ILoggingEvent::getFormattedMessage)
+                    .toList();
+
+            assertThat(messages).anyMatch(m ->
+                    m.contains("event=LOGIN_FAILED")
+                            && m.contains("ip=\"203.0.113.55\"")
+                            && m.contains("username=\"" + username + "\""));
+
+            assertThat(messages).anyMatch(m ->
+                    m.contains("event=ACCESS_DENIED")
+                            && m.contains("username=\"" + username + "\"")
+                            && m.contains("path=\"/api/v1/games\""));
+
+            // secrets never reach the log
+            assertThat(messages).noneMatch(m -> m.contains("wrong-password"));
+            assertThat(messages).noneMatch(m -> m.contains(token));
+
+        } finally {
+            auditLogger.detachAppender(appender);
+        }
+    }
 
     @Test
     void oldTokenStopsWorkingAfterPasswordChange() throws Exception {

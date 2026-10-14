@@ -5,6 +5,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import kh.virakchantrak.KhlaKhlouk.auth.audit.SecurityAudit;
 import kh.virakchantrak.KhlaKhlouk.auth.service.JwtService;
 import kh.virakchantrak.KhlaKhlouk.auth.service.PlayerDetailsService;
 import lombok.RequiredArgsConstructor;
@@ -54,6 +55,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             authenticate(authHeader.substring(7));
         } catch (JwtException | IllegalArgumentException | UsernameNotFoundException e) {
             SecurityContextHolder.clearContext();
+
+            SecurityAudit.invalidToken(
+                    request.getRemoteAddr(),
+                    request.getMethod(),
+                    request.getRequestURI()
+            );
 
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.setContentType("application/json");

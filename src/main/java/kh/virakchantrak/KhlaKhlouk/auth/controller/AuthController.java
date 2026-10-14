@@ -2,12 +2,15 @@ package kh.virakchantrak.KhlaKhlouk.auth.controller;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import kh.virakchantrak.KhlaKhlouk.auth.audit.SecurityAudit;
 import kh.virakchantrak.KhlaKhlouk.auth.controller.dto.ChangePasswordRequest;
 import kh.virakchantrak.KhlaKhlouk.auth.controller.dto.LoginRequest;
 import kh.virakchantrak.KhlaKhlouk.auth.controller.dto.LoginResponse;
 import kh.virakchantrak.KhlaKhlouk.auth.service.AuthService;
 import kh.virakchantrak.KhlaKhlouk.auth.service.JwtService;
 import kh.virakchantrak.KhlaKhlouk.auth.service.LoginAttemptService;
+import kh.virakchantrak.KhlaKhlouk.common.exception.BusinessException;
+import org.springframework.security.core.AuthenticationException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -33,24 +36,35 @@ public class AuthController {
     private final LoginAttemptService loginAttemptService;
 
     @PostMapping("/login")
-    public LoginResponse login(@Valid @RequestBody LoginRequest request,
-                               HttpServletRequest httpRequest
+    public LoginResponse login(
+            @Valid @RequestBody LoginRequest request,
+            HttpServletRequest httpRequest
     ) {
         String ip = httpRequest.getRemoteAddr();
+        String username = request.getUsername();
 
-        // counted BEFORE the password is checked; throws 429 when over the limit
-        loginAttemptService.registerAttempt(ip, request.getUsername());
+        try {
+            loginAttemptService.registerAttempt(ip, username);
+        } catch (BusinessException e) {
+            SecurityAudit.loginBlocked(ip, username);
+            throw e;
+        }
 
-        Authentication authentication =
-                authenticationManager.authenticate(
-                        new UsernamePasswordAuthenticationToken(
-                                request.getUsername(),
-                                request.getPassword()
-                        )
-                );
+        Authentication authentication;
+        try {
+            authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(
+                            username,
+                            request.getPassword()
+                    )
+            );
+        } catch (AuthenticationException e) {
+            SecurityAudit.loginFailed(ip, username);
+            throw e;
+        }
 
-        // only reached when the password was correct
-        loginAttemptService.recordSuccess(ip, request.getUsername());
+        loginAttemptService.recordSuccess(ip, username);
+        SecurityAudit.loginSucceeded(ip, username);
 
         String token = jwtService.generateToken(
                 (UserDetails) authentication.getPrincipal()
