@@ -1,6 +1,7 @@
 package kh.virakchantrak.KhlaKhlouk.common.exception;
 
 import kh.virakchantrak.KhlaKhlouk.common.response.ApiError;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -64,6 +65,23 @@ public class GlobalExceptionHandler {
                         new ApiError(
                                 "CONCURRENT_UPDATE",
                                 "The resource was modified by another request",
+                                Map.of()
+                        )
+                );
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ApiError> handleDataIntegrityViolation(
+            DataIntegrityViolationException exception
+    ) {
+        // the exception message contains SQL and constraint names,
+        // so it is deliberately NOT sent to the client
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
+                .body(
+                        new ApiError(
+                                "DATA_CONFLICT",
+                                "The request conflicts with existing data",
                                 Map.of()
                         )
                 );

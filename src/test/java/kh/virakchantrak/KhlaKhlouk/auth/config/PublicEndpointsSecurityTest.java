@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;   // same import as your other tests
 import org.springframework.context.annotation.Import;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -19,9 +20,11 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(
@@ -83,5 +86,28 @@ class PublicEndpointsSecurityTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void errorEndpointIsReachableWithoutLogin() throws Exception {
+        // /error is where the server renders failures; it must not answer 401
+        mockMvc.perform(get("/error"))
+                .andExpect(result ->
+                        assertThat(result.getResponse().getStatus()).isNotEqualTo(401));
+    }
+
+    @Test
+    void duplicateUsernameRaceReturns409WithoutLeakingDatabaseDetails() throws Exception {
+        when(playerService.createPlayer("alice", "secret123"))
+                .thenThrow(new DataIntegrityViolationException(
+                        "duplicate key value violates unique constraint \"players_username_key\""));
+
+        mockMvc.perform(post("/api/v1/players")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\":\"alice\",\"password\":\"secret123\"}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("DATA_CONFLICT"))
+                .andExpect(jsonPath("$.message")
+                        .value("The request conflicts with existing data"));
     }
 }
