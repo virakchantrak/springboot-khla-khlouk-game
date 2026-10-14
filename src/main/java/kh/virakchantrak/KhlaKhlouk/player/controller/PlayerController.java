@@ -4,13 +4,12 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import kh.virakchantrak.KhlaKhlouk.auth.audit.SecurityAudit;
 import kh.virakchantrak.KhlaKhlouk.auth.service.CurrentPlayerService;
-import kh.virakchantrak.KhlaKhlouk.common.exception.BusinessException;
 import kh.virakchantrak.KhlaKhlouk.player.controller.dto.CreatePlayerRequest;
 import kh.virakchantrak.KhlaKhlouk.player.controller.dto.PlayerResponse;
 import kh.virakchantrak.KhlaKhlouk.player.domain.Player;
 import kh.virakchantrak.KhlaKhlouk.player.service.PlayerService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -46,17 +45,11 @@ public class PlayerController {
         return toResponse(player);
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/{playerId}")
     public PlayerResponse getPlayer(
             @PathVariable UUID playerId
     ) {
-        if (!playerId.equals(currentPlayerService.getPlayerId())) {
-            throw new BusinessException(
-                    "ACCESS_DENIED",
-                    "You can only view your own profile",
-                    HttpStatus.FORBIDDEN
-            );
-        }
         return toResponse(
                 playerService.getPlayer(playerId)
         );
