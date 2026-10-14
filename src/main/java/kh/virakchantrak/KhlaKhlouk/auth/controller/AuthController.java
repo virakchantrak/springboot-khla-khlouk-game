@@ -1,11 +1,13 @@
 package kh.virakchantrak.KhlaKhlouk.auth.controller;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import kh.virakchantrak.KhlaKhlouk.auth.controller.dto.ChangePasswordRequest;
 import kh.virakchantrak.KhlaKhlouk.auth.controller.dto.LoginRequest;
 import kh.virakchantrak.KhlaKhlouk.auth.controller.dto.LoginResponse;
 import kh.virakchantrak.KhlaKhlouk.auth.service.AuthService;
 import kh.virakchantrak.KhlaKhlouk.auth.service.JwtService;
+import kh.virakchantrak.KhlaKhlouk.auth.service.LoginAttemptService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -28,9 +30,16 @@ public class AuthController {
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
     private final AuthService authService;
+    private final LoginAttemptService loginAttemptService;
 
     @PostMapping("/login")
-    public LoginResponse login(@Valid @RequestBody LoginRequest request) {
+    public LoginResponse login(@Valid @RequestBody LoginRequest request,
+                               HttpServletRequest httpRequest
+    ) {
+        String ip = httpRequest.getRemoteAddr();
+
+        // counted BEFORE the password is checked; throws 429 when over the limit
+        loginAttemptService.registerAttempt(ip, request.getUsername());
 
         Authentication authentication =
                 authenticationManager.authenticate(
@@ -39,6 +48,9 @@ public class AuthController {
                                 request.getPassword()
                         )
                 );
+
+        // only reached when the password was correct
+        loginAttemptService.recordSuccess(ip, request.getUsername());
 
         String token = jwtService.generateToken(
                 (UserDetails) authentication.getPrincipal()

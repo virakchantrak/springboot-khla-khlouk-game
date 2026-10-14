@@ -4,6 +4,7 @@ import kh.virakchantrak.KhlaKhlouk.auth.controller.AuthController;
 import kh.virakchantrak.KhlaKhlouk.auth.service.AuthService;
 import kh.virakchantrak.KhlaKhlouk.auth.service.CurrentPlayerService;
 import kh.virakchantrak.KhlaKhlouk.auth.service.JwtService;
+import kh.virakchantrak.KhlaKhlouk.auth.service.LoginAttemptService;
 import kh.virakchantrak.KhlaKhlouk.auth.service.PlayerDetailsService;
 import kh.virakchantrak.KhlaKhlouk.player.controller.PlayerController;
 import kh.virakchantrak.KhlaKhlouk.player.domain.Player;
@@ -42,6 +43,7 @@ class PublicEndpointsSecurityTest {
     @MockitoBean AuthenticationManager authenticationManager;
     @MockitoBean JwtService jwtService;
     @MockitoBean PlayerDetailsService playerDetailsService;
+    @MockitoBean LoginAttemptService loginAttemptService;
 
     // ---------- must NOT be public any more ----------
 

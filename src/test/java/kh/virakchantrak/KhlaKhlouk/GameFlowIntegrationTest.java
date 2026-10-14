@@ -13,6 +13,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashSet;
@@ -34,6 +35,38 @@ class GameFlowIntegrationTest {
 
     @Autowired MockMvc mockMvc;
     @Autowired PlayerRepository playerRepository;
+
+    @Test
+    void loginIsBlockedAfterFiveWrongPasswords() throws Exception {
+        String username = "victim-" + UUID.randomUUID();
+        register(username);
+
+        for (int i = 0; i < 5; i++) {
+            loginFrom("203.0.113.7", username, "wrong-password")
+                    .andExpect(status().isUnauthorized());
+        }
+
+        // the 6th attempt is blocked, even with the correct password
+        loginFrom("203.0.113.7", username, "secret123")
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.code").value("TOO_MANY_LOGIN_ATTEMPTS"));
+
+        // the real owner, from another address, is not locked out
+        loginFrom("198.51.100.9", username, "secret123")
+                .andExpect(status().isOk());
+    }
+
+    private ResultActions loginFrom(String ip, String username, String password)
+            throws Exception {
+        return mockMvc.perform(post("/api/v1/auth/login")
+                .with(request -> {
+                    request.setRemoteAddr(ip);
+                    return request;
+                })
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"username\":\"" + username
+                        + "\",\"password\":\"" + password + "\"}"));
+    }
 
     @Test
     void playerBetsOnEverySymbolAndGetsCorrectPayout() throws Exception {
