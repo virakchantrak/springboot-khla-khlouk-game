@@ -23,6 +23,7 @@ public class AuthService {
     public void changePassword(
             ChangePasswordRequest request
     ) {
+        PasswordPolicy.checkLength(request.getNewPassword());
         UUID playerId = currentPlayerService.getPlayerId();
         Player player = playerRepository.findById(playerId)
                 .orElseThrow(() -> new BusinessException(

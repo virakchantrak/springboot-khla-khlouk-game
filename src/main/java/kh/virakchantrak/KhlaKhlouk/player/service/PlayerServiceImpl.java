@@ -1,5 +1,6 @@
 package kh.virakchantrak.KhlaKhlouk.player.service;
 
+import kh.virakchantrak.KhlaKhlouk.auth.service.PasswordPolicy;
 import kh.virakchantrak.KhlaKhlouk.common.exception.BusinessException;
 import kh.virakchantrak.KhlaKhlouk.player.domain.Player;
 import kh.virakchantrak.KhlaKhlouk.player.repository.PlayerRepository;
@@ -28,6 +29,8 @@ public class PlayerServiceImpl implements PlayerService {
             String username,
             String password
     ) {
+        PasswordPolicy.checkLength(password);
+
         if (playerRepository.findByUsername(username).isPresent()) {
             throw new BusinessException(
                     "USERNAME_ALREADY_EXISTS",

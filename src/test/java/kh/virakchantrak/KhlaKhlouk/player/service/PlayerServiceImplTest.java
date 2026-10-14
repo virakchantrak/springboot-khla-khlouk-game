@@ -21,6 +21,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -36,6 +37,17 @@ class PlayerServiceImplTest {
         // the @Value setting is not loaded in a plain unit test, so set it by hand
         ReflectionTestUtils.setField(
                 playerService, "startingBalance", new BigDecimal("1000.00"));
+    }
+
+    @Test
+    void shouldRejectPasswordLongerThanBcryptLimit() {
+        String tooLong = "a".repeat(73);
+
+        assertThatThrownBy(() -> playerService.createPlayer("alice", tooLong))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("code", "PASSWORD_TOO_LONG");
+
+        verifyNoInteractions(playerRepository, passwordEncoder);
     }
 
     @Test
