@@ -25,7 +25,6 @@ jwt:
   expiration: 3600000 # 1 hour
 
 app:
-  websocket:
-    allowed-origins: http://localhost:3000,http://localhost:5173
+  allowed-origins: http://localhost:3000,http://localhost:5173
   player:
     starting-balance: 1000.00

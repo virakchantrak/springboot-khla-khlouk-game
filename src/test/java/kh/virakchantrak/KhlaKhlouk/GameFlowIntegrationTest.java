@@ -26,6 +26,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -353,5 +354,69 @@ class GameFlowIntegrationTest {
 
         // nothing changed: the original password still logs in
         login(username);
+    }
+
+    @Test
+    void preflightFromAllowedOriginIsAccepted() throws Exception {
+        mockMvc.perform(options("/api/v1/games")
+                        .header("Origin", "http://localhost:3000")
+                        .header("Access-Control-Request-Method", "POST")
+                        .header("Access-Control-Request-Headers", "authorization,content-type"))
+                .andExpect(status().isOk())
+                .andExpect(result -> {
+                    assertThat(result.getResponse().getHeader("Access-Control-Allow-Origin"))
+                            .isEqualTo("http://localhost:3000");
+                    assertThat(result.getResponse().getHeader("Access-Control-Allow-Methods"))
+                            .contains("POST");
+                });
+    }
+
+    @Test
+    void preflightFromUnknownOriginIsRejected() throws Exception {
+        mockMvc.perform(options("/api/v1/games")
+                        .header("Origin", "https://evil.example")
+                        .header("Access-Control-Request-Method", "POST"))
+                .andExpect(status().isForbidden())
+                .andExpect(result -> assertThat(
+                        result.getResponse().getHeader("Access-Control-Allow-Origin")).isNull());
+    }
+
+    @Test
+    void realRequestFromAllowedOriginGetsCorsHeader() throws Exception {
+        String username = "cors-" + UUID.randomUUID();
+        register(username);
+        String token = login(username);
+
+        mockMvc.perform(get("/api/v1/players/me")
+                        .header("Authorization", bearer(token))
+                        .header("Origin", "http://localhost:3000"))
+                .andExpect(status().isOk())
+                .andExpect(result -> assertThat(
+                        result.getResponse().getHeader("Access-Control-Allow-Origin"))
+                        .isEqualTo("http://localhost:3000"));
+    }
+
+    @Test
+    void realRequestFromUnknownOriginIsRejected() throws Exception {
+        String username = "cors2-" + UUID.randomUUID();
+        register(username);
+        String token = login(username);
+
+        mockMvc.perform(get("/api/v1/players/me")
+                        .header("Authorization", bearer(token))
+                        .header("Origin", "https://evil.example"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void requestsWithoutAnOriginAreUnaffected() throws Exception {
+        // Postman, curl and mobile apps send no Origin header
+        String username = "cors3-" + UUID.randomUUID();
+        register(username);
+        String token = login(username);
+
+        mockMvc.perform(get("/api/v1/players/me")
+                        .header("Authorization", bearer(token)))
+                .andExpect(status().isOk());
     }
 }

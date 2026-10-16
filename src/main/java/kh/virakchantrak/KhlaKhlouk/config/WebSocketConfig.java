@@ -16,7 +16,7 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     private final WebSocketAuthInterceptor webSocketAuthInterceptor;
-    @Value("${app.websocket.allowed-origins}")
+    @Value("${app.allowed-origins}")
     private String[] allowedOrigins;
 
     @Override
