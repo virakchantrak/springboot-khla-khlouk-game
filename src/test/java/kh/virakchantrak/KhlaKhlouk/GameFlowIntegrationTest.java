@@ -454,4 +454,70 @@ class GameFlowIntegrationTest {
                         .header("Authorization", bearer(token)))
                 .andExpect(status().isOk());
     }
+
+    @Test
+    void playersOnlySeeTheirOwnWalletEntries() throws Exception {
+        String adminName = "wallet-admin-" + UUID.randomUUID();
+        String aliceName = "wallet-a-" + UUID.randomUUID();
+        String bobName = "wallet-b-" + UUID.randomUUID();
+
+        register(adminName);
+        register(aliceName);
+        register(bobName);
+        makeAdmin(adminName);
+
+        String adminToken = login(adminName);
+        String aliceToken = login(aliceName);
+        String bobToken = login(bobName);
+
+        // admin opens a game; only Alice bets
+        String gameId = JsonPath.read(
+                body(mockMvc.perform(post("/api/v1/games")
+                                .header("Authorization", bearer(adminToken)))
+                        .andExpect(status().isOk())
+                        .andReturn()),
+                "$.id");
+
+        mockMvc.perform(post("/api/v1/games/{id}/betting", gameId)
+                        .header("Authorization", bearer(adminToken)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/v1/games/{id}/bets", gameId)
+                        .header("Authorization", bearer(aliceToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"symbol\":\"TIGER\",\"amount\":10.00}"))
+                .andExpect(status().isOk());
+
+        // Alice sees her own bet
+        mockMvc.perform(get("/api/v1/wallet/transactions")
+                        .header("Authorization", bearer(aliceToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].type").value("BET"))
+                .andExpect(jsonPath("$.content[0].amount").value(10.0));
+
+        // Bob sees nothing of hers
+        mockMvc.perform(get("/api/v1/wallet/transactions")
+                        .header("Authorization", bearer(bobToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(0))
+                .andExpect(jsonPath("$.content").isEmpty());
+
+        // Bob cannot ask for Alice's entries by passing her id
+        String aliceId = JsonPath.read(
+                body(mockMvc.perform(get("/api/v1/players/me")
+                                .header("Authorization", bearer(aliceToken)))
+                        .andExpect(status().isOk())
+                        .andReturn()),
+                "$.id");
+
+        mockMvc.perform(get("/api/v1/wallet/transactions?playerId=" + aliceId)
+                        .header("Authorization", bearer(bobToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(0));
+
+        // and without a login there is nothing at all
+        mockMvc.perform(get("/api/v1/wallet/transactions"))
+                .andExpect(status().isUnauthorized());
+    }
 }
