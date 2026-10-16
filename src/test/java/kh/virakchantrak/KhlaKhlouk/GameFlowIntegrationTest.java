@@ -419,4 +419,39 @@ class GameFlowIntegrationTest {
                         .header("Authorization", bearer(token)))
                 .andExpect(status().isOk());
     }
+
+    @Test
+    void pageSizeIsCappedAt100() throws Exception {
+        String username = "pager-" + UUID.randomUUID();
+        register(username);
+        String token = login(username);
+
+        mockMvc.perform(get("/api/v1/wallet/transactions?size=100000")
+                        .header("Authorization", bearer(token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.size").value(100));
+    }
+
+    @Test
+    void unknownSortPropertyReturns400NotAServerError() throws Exception {
+        String username = "sorter-" + UUID.randomUUID();
+        register(username);
+        String token = login(username);
+
+        mockMvc.perform(get("/api/v1/games?sort=doesNotExist")
+                        .header("Authorization", bearer(token)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_SORT"));
+    }
+
+    @Test
+    void validSortStillWorks() throws Exception {
+        String username = "sorter2-" + UUID.randomUUID();
+        register(username);
+        String token = login(username);
+
+        mockMvc.perform(get("/api/v1/games?sort=createdAt,desc")
+                        .header("Authorization", bearer(token)))
+                .andExpect(status().isOk());
+    }
 }

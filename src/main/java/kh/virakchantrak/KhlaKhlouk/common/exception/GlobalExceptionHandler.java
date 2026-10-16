@@ -2,7 +2,9 @@ package kh.virakchantrak.KhlaKhlouk.common.exception;
 
 import kh.virakchantrak.KhlaKhlouk.common.response.ApiError;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.InvalidDataAccessApiUsageException;
 import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.data.core.PropertyReferenceException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
@@ -85,5 +87,32 @@ public class GlobalExceptionHandler {
                                 Map.of()
                         )
                 );
+    }
+
+    @ExceptionHandler(PropertyReferenceException.class)
+    public ResponseEntity<ApiError> handleInvalidSort(PropertyReferenceException exception) {
+        return invalidSortResponse();
+    }
+
+    // depending on the call path, Spring may wrap the same problem in this exception
+    @ExceptionHandler(InvalidDataAccessApiUsageException.class)
+    public ResponseEntity<ApiError> handleInvalidDataAccessApiUsage(
+            InvalidDataAccessApiUsageException exception
+    ) {
+        for (Throwable cause = exception; cause != null; cause = cause.getCause()) {
+            if (cause instanceof PropertyReferenceException) {
+                return invalidSortResponse();
+            }
+        }
+
+        // anything else is a real bug: don't hide it
+        throw exception;
+    }
+
+    private ResponseEntity<ApiError> invalidSortResponse() {
+        // the rejected property name is deliberately not echoed back
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(new ApiError("INVALID_SORT", "Invalid sort parameter", Map.of()));
     }
 }
