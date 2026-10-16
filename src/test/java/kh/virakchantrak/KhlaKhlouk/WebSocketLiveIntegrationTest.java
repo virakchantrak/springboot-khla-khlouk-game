@@ -16,11 +16,15 @@ import org.springframework.messaging.simp.stomp.StompFrameHandler;
 import org.springframework.messaging.simp.stomp.StompHeaders;
 import org.springframework.messaging.simp.stomp.StompSession;
 import org.springframework.messaging.simp.stomp.StompSessionHandlerAdapter;
+import org.springframework.messaging.simp.user.SimpUserRegistry;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.web.socket.WebSocketHttpHeaders;
 import org.springframework.web.socket.client.standard.StandardWebSocketClient;
 import org.springframework.web.socket.messaging.WebSocketStompClient;
+
+import org.springframework.messaging.MessageHeaders;
+import org.springframework.messaging.simp.stomp.StompCommand;
 
 import java.lang.reflect.Type;
 import java.net.URI;
@@ -33,13 +37,13 @@ import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.fail;
 import static org.assertj.core.api.Assertions.within;
 
 // Runs the real app on a real port, so nothing is rolled back automatically:
@@ -48,9 +52,16 @@ import static org.assertj.core.api.Assertions.within;
 @ActiveProfiles("test")
 class WebSocketLiveIntegrationTest {
 
-    @Value("${local.server.port}") int port;
-    @Autowired PlayerRepository playerRepository;
-    @Autowired JdbcTemplate jdbcTemplate;
+    @Value("${local.server.port}")
+    int port;
+    @Autowired
+    PlayerRepository playerRepository;
+    @Autowired
+    SimpUserRegistry userRegistry;
+
+    private final List<String> serverErrors = new CopyOnWriteArrayList<>();
+    @Autowired
+    JdbcTemplate jdbcTemplate;
 
     private final HttpClient http = HttpClient.newBuilder()
             .version(HttpClient.Version.HTTP_1_1)
@@ -72,7 +83,13 @@ class WebSocketLiveIntegrationTest {
         scheduler.initialize();
 
         stompClient = new WebSocketStompClient(new StandardWebSocketClient());
-        stompClient.setMessageConverter(new StringMessageConverter());
+        stompClient.setMessageConverter(new StringMessageConverter() {
+            @Override
+            protected boolean supportsMimeType(MessageHeaders headers) {
+                // the server sends JSON; the test just wants the raw text
+                return true;
+            }
+        });
         stompClient.setTaskScheduler(scheduler);   // required to track receipts
     }
 
@@ -176,6 +193,8 @@ class WebSocketLiveIntegrationTest {
         BlockingQueue<String> spy =
                 subscribe(connect(playerToken), "/topic/**", false);
 
+        assertNeverRegistered("/topic/**");
+
         // a real event happens on a real game
         String gameId = createGame(adminToken);
         call("POST", "/api/v1/games/" + gameId + "/betting", adminToken, null);
@@ -198,8 +217,19 @@ class WebSocketLiveIntegrationTest {
                 new StompSessionHandlerAdapter() {
                     @Override
                     public void handleFrame(StompHeaders headers, Object payload) {
-                        // ERROR frames from the server end up here
+                        // ERROR frames from the server arrive here
                         serverErrors.add(String.valueOf(headers.getFirst("message")));
+                    }
+
+                    @Override
+                    public void handleException(
+                            StompSession session,
+                            StompCommand command,
+                            StompHeaders headers,
+                            byte[] payload,
+                            Throwable exception
+                    ) {
+                        serverErrors.add("client-side error: " + exception);
                     }
 
                     @Override
@@ -219,39 +249,62 @@ class WebSocketLiveIntegrationTest {
     private BlockingQueue<String> subscribe(
             StompSession session,
             String destination,
-            boolean waitUntilConfirmed
+            boolean waitUntilRegistered
     ) throws Exception {
         BlockingQueue<String> events = new LinkedBlockingQueue<>();
 
-        session.setAutoReceipt(true);
-        StompSession.Subscription subscription = session.subscribe(
-                destination,
-                new StompFrameHandler() {
-                    @Override
-                    public Type getPayloadType(StompHeaders headers) {
-                        return String.class;
-                    }
+        session.subscribe(destination, new StompFrameHandler() {
+            @Override
+            public Type getPayloadType(StompHeaders headers) {
+                return String.class;
+            }
 
-                    @Override
-                    public void handleFrame(StompHeaders headers, Object payload) {
-                        events.add((String) payload);
-                    }
-                });
+            @Override
+            public void handleFrame(StompHeaders headers, Object payload) {
+                events.add((String) payload);
+            }
+        });
 
-        if (waitUntilConfirmed) {
-            CountDownLatch confirmed = new CountDownLatch(1);
-            subscription.addReceiptTask(confirmed::countDown);
-            assertThat(confirmed.await(5, TimeUnit.SECONDS))
-                    .as("server confirmed the subscription; server errors: " + serverErrors)
-                    .isTrue();
+        if (waitUntilRegistered) {
+            awaitServerSubscription(destination);
         }
 
         return events;
     }
 
+    // the simple broker sends no receipts, so ask the server's own registry instead
+    private void awaitServerSubscription(String destination) throws InterruptedException {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+
+        while (System.nanoTime() < deadline) {
+            if (!userRegistry.findSubscriptions(
+                    sub -> destination.equals(sub.getDestination())).isEmpty()) {
+                return;
+            }
+            Thread.sleep(50);
+        }
+
+        fail("The server never registered a subscription to " + destination
+                + ". Errors reported by the server: " + serverErrors);
+    }
+
+    private void assertNeverRegistered(String destination) throws InterruptedException {
+        long until = System.nanoTime() + TimeUnit.SECONDS.toNanos(1);
+
+        while (System.nanoTime() < until) {
+            assertThat(userRegistry.findSubscriptions(
+                    sub -> destination.equals(sub.getDestination())))
+                    .as("subscription to " + destination + " must be refused")
+                    .isEmpty();
+            Thread.sleep(50);
+        }
+    }
+
     private String next(BlockingQueue<String> events) throws InterruptedException {
         String event = events.poll(5, TimeUnit.SECONDS);
-        assertThat(event).as("an event arrived within 5 seconds").isNotNull();
+        assertThat(event)
+                .as("an event arrived within 5 seconds; errors seen: " + serverErrors)
+                .isNotNull();
         return event;
     }
 
@@ -317,6 +370,4 @@ class WebSocketLiveIntegrationTest {
         createdGames.add(UUID.fromString(gameId));
         return gameId;
     }
-
-    private final List<String> serverErrors = new CopyOnWriteArrayList<>();
 }
