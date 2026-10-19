@@ -143,4 +143,14 @@ class PublicEndpointsSecurityTest {
 
         verifyNoInteractions(loginAttemptService, playerService);
     }
+
+    @Test
+    void malformedJsonReturns400WithoutLeakingParserDetails() throws Exception {
+        mockMvc.perform(post("/api/v1/players")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{this is not json"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("BAD_REQUEST"))
+                .andExpect(jsonPath("$.message").value("Malformed or invalid request"));
+    }
 }

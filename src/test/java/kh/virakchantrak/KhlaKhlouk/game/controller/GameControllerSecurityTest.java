@@ -23,6 +23,8 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 
 @WebMvcTest(
         controllers = GameController.class,
@@ -43,7 +45,8 @@ class GameControllerSecurityTest {
     @Test
     void createGameWithoutLoginReturns401() throws Exception {
         mockMvc.perform(post("/api/v1/games"))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));;
 
         verifyNoInteractions(gameService);
     }
@@ -53,7 +56,7 @@ class GameControllerSecurityTest {
     void createGameAsNormalPlayerReturns403() throws Exception {
         mockMvc.perform(post("/api/v1/games"))
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.status").value(403))
+                .andExpect(jsonPath("$.code").value("ACCESS_DENIED"))
                 .andExpect(jsonPath("$.message").value("Access denied"));
 
         verifyNoInteractions(gameService);
@@ -81,5 +84,30 @@ class GameControllerSecurityTest {
                 .andExpect(status().isOk());
 
         verify(gameService).createGame();
+    }
+
+    @Test
+    @WithMockUser(roles = "PLAYER")
+    void invalidIdInThePathReturns400InTheStandardFormat() throws Exception {
+        mockMvc.perform(get("/api/v1/games/not-a-uuid"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("BAD_REQUEST"))
+                .andExpect(jsonPath("$.message").value("Malformed or invalid request"));
+    }
+
+    @Test
+    @WithMockUser(roles = "PLAYER")
+    void unsupportedMethodReturns405InTheStandardFormat() throws Exception {
+        mockMvc.perform(put("/api/v1/games"))
+                .andExpect(status().isMethodNotAllowed())
+                .andExpect(jsonPath("$.code").value("METHOD_NOT_ALLOWED"));
+    }
+
+    @Test
+    @WithMockUser(roles = "PLAYER")
+    void unknownUrlReturns404InTheStandardFormat() throws Exception {
+        mockMvc.perform(get("/api/v1/does-not-exist"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("NOT_FOUND"));
     }
 }
