@@ -31,7 +31,7 @@ public class PlayerServiceImpl implements PlayerService {
     ) {
         PasswordPolicy.checkLength(password);
 
-        if (playerRepository.findByUsername(username).isPresent()) {
+        if (playerRepository.findByUsernameIgnoreCase(username).isPresent()) {
             throw new BusinessException(
                     "USERNAME_ALREADY_EXISTS",
                     "Username already exists",
