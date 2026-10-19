@@ -1,0 +1,68 @@
+package kh.virakchantrak.KhlaKhlouk.auth.service;
+
+import kh.virakchantrak.KhlaKhlouk.auth.audit.SecurityAudit;
+import kh.virakchantrak.KhlaKhlouk.auth.controller.dto.ChangePasswordRequest;
+import kh.virakchantrak.KhlaKhlouk.common.exception.BusinessException;
+import kh.virakchantrak.KhlaKhlouk.player.domain.Player;
+import kh.virakchantrak.KhlaKhlouk.player.repository.PlayerRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.UUID;
+
+@Service
+@RequiredArgsConstructor
+public class AuthService {
+    private final PlayerRepository playerRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final CurrentPlayerService currentPlayerService;
+    private final LoginAttemptService loginAttemptService;
+
+    @Transactional
+    public void changePassword(
+            ChangePasswordRequest request
+    ) {
+        PasswordPolicy.checkLength(request.getNewPassword());
+        UUID playerId = currentPlayerService.getPlayerId();
+
+        try {
+            loginAttemptService.registerPasswordChangeAttempt(playerId);
+        } catch (BusinessException e) {
+            SecurityAudit.passwordChangeBlocked(playerId);
+            throw e;
+        }
+
+        Player player = playerRepository.findById(playerId)
+                .orElseThrow(() -> new BusinessException(
+                        "PLAYER_NOT_FOUND",
+                        "Player not found",
+                        HttpStatus.NOT_FOUND
+                ));
+
+        if (!passwordEncoder.matches(
+                request.getCurrentPassword(),
+                player.getPasswordHash()
+        )) {
+            SecurityAudit.passwordChangeFailed(playerId);
+            throw new BusinessException(
+                    "INVALID_CURRENT_PASSWORD",
+                    "Current password is incorrect",
+                    HttpStatus.BAD_REQUEST
+            );
+        }
+
+        player.setPasswordHash(
+                passwordEncoder.encode(request.getNewPassword())
+        );
+
+        // ends every existing session: older tokens carry the old version
+        player.setTokenVersion(player.getTokenVersion() + 1);
+
+        loginAttemptService.recordPasswordChangeSuccess(playerId);
+
+        SecurityAudit.passwordChanged(playerId);
+    }
+}
