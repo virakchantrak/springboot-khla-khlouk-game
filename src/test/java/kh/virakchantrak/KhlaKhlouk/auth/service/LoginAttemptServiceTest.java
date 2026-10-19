@@ -164,4 +164,66 @@ class LoginAttemptServiceTest {
         assertThatCode(() -> service.registerPasswordChangeAttempt(player))
                 .doesNotThrowAnyException();
     }
+
+    @Test
+    void registrationsAreBlockedAfterTheConfiguredLimit() {
+        LoginAttemptService strict = new LoginAttemptService(clock, 3);
+
+        for (int i = 0; i < 3; i++) {
+            strict.registerRegistrationAttempt("1.1.1.1");
+        }
+
+        assertThatThrownBy(() -> strict.registerRegistrationAttempt("1.1.1.1"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("code", "TOO_MANY_REGISTRATIONS")
+                .hasFieldOrPropertyWithValue("status", HttpStatus.TOO_MANY_REQUESTS);
+    }
+
+    @Test
+    void registrationLimitIsPerAddress() {
+        LoginAttemptService strict = new LoginAttemptService(clock, 3);
+
+        for (int i = 0; i < 3; i++) {
+            strict.registerRegistrationAttempt("6.6.6.6");
+        }
+
+        assertThatThrownBy(() -> strict.registerRegistrationAttempt("6.6.6.6"))
+                .isInstanceOf(BusinessException.class);
+        assertThatCode(() -> strict.registerRegistrationAttempt("2.2.2.2"))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void registrationWindowIsOneHourNotFifteenMinutes() {
+        LoginAttemptService strict = new LoginAttemptService(clock, 3);
+
+        for (int i = 0; i < 4; i++) {
+            try {
+                strict.registerRegistrationAttempt("1.1.1.1");
+            } catch (BusinessException ignored) {
+                // the 4th attempt is the one that gets blocked
+            }
+        }
+
+        // the login window would be over by now, the registration window is not
+        clock.advance(Duration.ofMinutes(59).plusSeconds(59));
+        assertThatThrownBy(() -> strict.registerRegistrationAttempt("1.1.1.1"))
+                .isInstanceOf(BusinessException.class);
+
+        clock.advance(Duration.ofSeconds(1));
+        assertThatCode(() -> strict.registerRegistrationAttempt("1.1.1.1"))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void loginAttemptsDoNotUseUpTheRegistrationBudget() {
+        LoginAttemptService strict = new LoginAttemptService(clock, 3);
+
+        for (int i = 0; i < 5; i++) {
+            strict.registerAttempt("1.1.1.1", "alice");
+        }
+
+        assertThatCode(() -> strict.registerRegistrationAttempt("1.1.1.1"))
+                .doesNotThrowAnyException();
+    }
 }

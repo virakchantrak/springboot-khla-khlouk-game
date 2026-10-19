@@ -4,6 +4,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import kh.virakchantrak.KhlaKhlouk.auth.audit.SecurityAudit;
 import kh.virakchantrak.KhlaKhlouk.auth.service.CurrentPlayerService;
+import kh.virakchantrak.KhlaKhlouk.auth.service.LoginAttemptService;
+import kh.virakchantrak.KhlaKhlouk.common.exception.BusinessException;
 import kh.virakchantrak.KhlaKhlouk.player.controller.dto.CreatePlayerRequest;
 import kh.virakchantrak.KhlaKhlouk.player.controller.dto.PlayerResponse;
 import kh.virakchantrak.KhlaKhlouk.player.domain.Player;
@@ -26,21 +28,29 @@ public class PlayerController {
 
     private final PlayerService playerService;
     private final CurrentPlayerService currentPlayerService;
+    private final LoginAttemptService loginAttemptService;
 
     @PostMapping
     public PlayerResponse createPlayer(
             @Valid @RequestBody CreatePlayerRequest request,
             HttpServletRequest httpRequest
     ) {
+        String ip = httpRequest.getRemoteAddr();
+
+        // counted before the expensive password hashing happens
+        try {
+            loginAttemptService.registerRegistrationAttempt(ip);
+        } catch (BusinessException e) {
+            SecurityAudit.registrationBlocked(ip);
+            throw e;
+        }
+
         Player player = playerService.createPlayer(
                 request.username(),
                 request.password()
         );
 
-        SecurityAudit.playerRegistered(
-                httpRequest.getRemoteAddr(),
-                player.getUsername()
-        );
+        SecurityAudit.playerRegistered(ip, player.getUsername());
 
         return toResponse(player);
     }
