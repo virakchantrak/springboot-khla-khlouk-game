@@ -13,8 +13,4 @@ public record RollResult(
                 .filter(symbol::equals)
                 .count();
     }
-
-    public boolean contains(Symbol symbol) {
-        return count(symbol) > 0;
-    }
 }

@@ -124,7 +124,7 @@ class GameServiceImplTest {
 
         assertThatThrownBy(() -> gameService.rollGame(gameId))
                 .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("code", "GAME_NOT_ACCEPTING_BETS");
+                .hasFieldOrPropertyWithValue("code", "GAME_NOT_READY_TO_ROLL");
 
         assertThat(game.getStatus()).isEqualTo(GameStatus.WAITING);
         verifyNoInteractions(dice, walletTransactionRepository, eventPublisher);

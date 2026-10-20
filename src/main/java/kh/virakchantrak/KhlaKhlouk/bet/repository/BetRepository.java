@@ -14,8 +14,6 @@ public interface BetRepository extends JpaRepository<Bet, UUID> {
 
     List<Bet> findByGameId(UUID gameId);
 
-    List<Bet> findByPlayerId(UUID playerId);
-
     Page<Bet> findByPlayerIdOrderByCreatedAtDesc(
             UUID playerId,
             Pageable pageable

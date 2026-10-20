@@ -90,13 +90,11 @@ public class GameServiceImpl implements GameService {
 
         if (game.getStatus() != GameStatus.BETTING) {
             throw new BusinessException(
-                    "GAME_NOT_ACCEPTING_BETS",
-                    "Game is not accepting bets",
+                    "GAME_NOT_READY_TO_ROLL",
+                    "Game must be in BETTING status to be rolled",
                     HttpStatus.BAD_REQUEST
             );
         }
-
-        game.setStatus(GameStatus.ROLLING);
 
         // 1. Roll the dice
         RollResult result = dice.rollThree();
