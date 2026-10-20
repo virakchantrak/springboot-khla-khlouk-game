@@ -1,3 +1,4 @@
+![CI](https://github.com/virakchantrak/springboot-khla-khlouk-game/actions/workflows/ci.yml/badge.svg)
 # 🎲 ហ្គេមខ្លាឃ្លោក (Khla Khlouk)
 
 A Spring Boot backend for **Khla Khlouk**, the traditional Khmer dice game. Players bet play-money on six animals, an admin rolls three dice, and winners are paid automatically. The game runs over a REST API and pushes live updates to players over WebSocket.
