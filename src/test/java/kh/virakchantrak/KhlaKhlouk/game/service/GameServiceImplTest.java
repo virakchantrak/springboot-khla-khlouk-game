@@ -21,12 +21,15 @@ import kh.virakchantrak.KhlaKhlouk.websocket.GameEventType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -35,6 +38,9 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -174,5 +180,107 @@ class GameServiceImplTest {
                 .hasFieldOrPropertyWithValue("code", "GAME_NOT_WAITING");
 
         verifyNoInteractions(eventPublisher);
+    }
+
+    @Test
+    void cancellingABettingGameRefundsEveryBetAndRecordsTheLedger() {
+        // stakes were already paid: A bet 2 x 10 (100 -> 80), B bet 10 (100 -> 90)
+        Player playerA = playerWithBalance("80.00");
+        Player playerB = playerWithBalance("90.00");
+
+        Bet a1 = bet(playerA, Symbol.TIGER, "10.00");
+        Bet a2 = bet(playerA, Symbol.CRAB, "10.00");
+        Bet b1 = bet(playerB, Symbol.FISH, "10.00");
+
+        UUID a1Id = UUID.randomUUID();
+        UUID a2Id = UUID.randomUUID();
+        UUID b1Id = UUID.randomUUID();
+        ReflectionTestUtils.setField(a1, "id", a1Id);
+        ReflectionTestUtils.setField(a2, "id", a2Id);
+        ReflectionTestUtils.setField(b1, "id", b1Id);
+
+        when(gameRepository.findByIdForUpdate(gameId)).thenReturn(Optional.of(game));
+        when(betRepository.findByGameId(gameId)).thenReturn(List.of(a1, a2, b1));
+
+        Game cancelled = gameService.cancelGame(gameId);
+
+        assertThat(cancelled.getStatus()).isEqualTo(GameStatus.CANCELLED);
+        assertThat(cancelled.getEndedAt()).isNotNull();
+
+        // everybody has their stakes back
+        assertThat(playerA.getBalance()).isEqualByComparingTo("100.00");
+        assertThat(playerB.getBalance()).isEqualByComparingTo("100.00");
+
+        // one REFUND entry per bet, linked to that bet, with the balance after each refund
+        ArgumentCaptor<WalletTransaction> captor =
+                ArgumentCaptor.forClass(WalletTransaction.class);
+        verify(walletTransactionRepository, times(3)).save(captor.capture());
+        List<WalletTransaction> entries = captor.getAllValues();
+
+        assertThat(entries).extracting(WalletTransaction::getType)
+                .containsOnly(WalletTransactionType.REFUND);
+        assertThat(entries).extracting(WalletTransaction::getReferenceId)
+                .containsExactly(a1Id, a2Id, b1Id);
+        assertThat(entries)
+                .extracting(entry -> entry.getBalanceAfter().toPlainString())
+                .containsExactly("90.00", "100.00", "100.00");
+
+        // the event says what happened
+        ArgumentCaptor<GameEvent> eventCaptor = ArgumentCaptor.forClass(GameEvent.class);
+        verify(eventPublisher).publishEvent(eventCaptor.capture());
+        GameEvent event = eventCaptor.getValue();
+        assertThat(event.type()).isEqualTo(GameEventType.GAME_CANCELLED);
+        assertThat(event.status()).isEqualTo(GameStatus.CANCELLED);
+        assertThat(event.totalBets()).isEqualTo(3);
+        assertThat(event.totalBetAmount()).isEqualByComparingTo("30.00");
+        assertThat(event.dice1()).isNull();
+
+        // the exclusive lock is what keeps a late bet or a roll from sneaking in
+        verify(gameRepository).findByIdForUpdate(gameId);
+        verify(gameRepository, never()).findById(any());
+    }
+
+    @Test
+    void cancellingAWaitingGameWithNoBetsJustCancelsIt() {
+        game.setStatus(GameStatus.WAITING);
+
+        when(gameRepository.findByIdForUpdate(gameId)).thenReturn(Optional.of(game));
+        when(betRepository.findByGameId(gameId)).thenReturn(List.of());
+
+        Game cancelled = gameService.cancelGame(gameId);
+
+        assertThat(cancelled.getStatus()).isEqualTo(GameStatus.CANCELLED);
+        verifyNoInteractions(walletTransactionRepository);
+
+        ArgumentCaptor<GameEvent> eventCaptor = ArgumentCaptor.forClass(GameEvent.class);
+        verify(eventPublisher).publishEvent(eventCaptor.capture());
+        assertThat(eventCaptor.getValue().totalBets()).isZero();
+        assertThat(eventCaptor.getValue().totalBetAmount()).isEqualByComparingTo("0");
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = GameStatus.class, names = {"FINISHED", "CANCELLED"})
+    void gamesThatAreAlreadyOverCannotBeCancelled(GameStatus status) {
+        game.setStatus(status);
+
+        when(gameRepository.findByIdForUpdate(gameId)).thenReturn(Optional.of(game));
+
+        assertThatThrownBy(() -> gameService.cancelGame(gameId))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("code", "GAME_NOT_CANCELLABLE");
+
+        assertThat(game.getStatus()).isEqualTo(status);
+        verifyNoInteractions(betRepository, walletTransactionRepository, eventPublisher);
+    }
+
+    @Test
+    void cancellingAnUnknownGameReturnsGameNotFound() {
+        when(gameRepository.findByIdForUpdate(gameId)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> gameService.cancelGame(gameId))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("code", "GAME_NOT_FOUND");
+
+        verifyNoInteractions(betRepository, walletTransactionRepository, eventPublisher);
     }
 }

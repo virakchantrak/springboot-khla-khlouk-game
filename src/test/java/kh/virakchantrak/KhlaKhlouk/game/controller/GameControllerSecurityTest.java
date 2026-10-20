@@ -4,6 +4,7 @@ import kh.virakchantrak.KhlaKhlouk.auth.config.SecurityConfig;
 import kh.virakchantrak.KhlaKhlouk.auth.service.CurrentPlayerService;
 import kh.virakchantrak.KhlaKhlouk.auth.service.JwtService;
 import kh.virakchantrak.KhlaKhlouk.auth.service.PlayerDetailsService;
+import kh.virakchantrak.KhlaKhlouk.common.exception.BusinessException;
 import kh.virakchantrak.KhlaKhlouk.game.domain.Game;
 import kh.virakchantrak.KhlaKhlouk.game.domain.GameStatus;
 import kh.virakchantrak.KhlaKhlouk.game.service.GameService;
@@ -11,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;   // let your IDE confirm this import
 import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -109,5 +111,54 @@ class GameControllerSecurityTest {
         mockMvc.perform(get("/api/v1/does-not-exist"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("NOT_FOUND"));
+    }
+
+    @Test
+    void cancelGameWithoutLoginReturns401() throws Exception {
+        mockMvc.perform(post("/api/v1/games/{id}/cancel", UUID.randomUUID()))
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(gameService);
+    }
+
+    @Test
+    @WithMockUser(roles = "PLAYER")
+    void cancelGameAsNormalPlayerReturns403() throws Exception {
+        mockMvc.perform(post("/api/v1/games/{id}/cancel", UUID.randomUUID()))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(gameService);
+    }
+
+    @Test
+    @WithMockUser(roles = {"PLAYER", "ADMIN"})
+    void cancelGameAsAdminReturns200() throws Exception {
+        UUID id = UUID.randomUUID();
+        Game game = new Game();
+        game.setId(id);
+        game.setStatus(GameStatus.CANCELLED);
+
+        when(gameService.cancelGame(id)).thenReturn(game);
+
+        mockMvc.perform(post("/api/v1/games/{id}/cancel", id))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CANCELLED"));
+
+        verify(gameService).cancelGame(id);
+    }
+
+    @Test
+    @WithMockUser(roles = {"PLAYER", "ADMIN"})
+    void cancellingAFinishedGameReturns400() throws Exception {
+        UUID id = UUID.randomUUID();
+
+        when(gameService.cancelGame(id)).thenThrow(new BusinessException(
+                "GAME_NOT_CANCELLABLE",
+                "Only a game that has not been rolled can be cancelled",
+                HttpStatus.BAD_REQUEST));
+
+        mockMvc.perform(post("/api/v1/games/{id}/cancel", id))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("GAME_NOT_CANCELLABLE"));
     }
 }

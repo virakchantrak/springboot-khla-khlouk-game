@@ -112,6 +112,17 @@ public class GameController {
         return gameService.getGameDetails(gameId);
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
+    @PostMapping("/{gameId}/cancel")
+    public GameResponse cancelGame(@PathVariable UUID gameId) {
+        Game game = gameService.cancelGame(gameId);
+
+        SecurityAudit.adminAction(
+                currentPlayerService.getPlayerId(), "CANCEL_GAME", game.getId());
+
+        return toResponse(game);
+    }
+
     private @NonNull GameResponse toResponse(Game game) {
         return new GameResponse(
                 game.getId(),
