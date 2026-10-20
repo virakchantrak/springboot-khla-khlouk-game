@@ -18,11 +18,12 @@ A Spring Boot backend for **Khla Khlouk**, the traditional Khmer dice game. Play
 
 Each game has three dice. Every die shows one of six symbols: `TIGER`, `CRAB`, `FISH`, `DEER`, `ROOSTER`, `SHRIMP`.
 
-**Lifecycle:** `WAITING` → `BETTING` → `FINISHED`
+**Lifecycle:** `WAITING` → `BETTING` → `FINISHED` `( or CANCELLED)`
 
 1. An admin creates a game (`WAITING`) and opens betting (`BETTING`).
 2. Players place bets: a symbol and an amount (more than 0, at most 2 decimals). A player can place several bets in one game. The stake leaves their balance immediately.
-3. The admin rolls the dice. The dice use a cryptographically secure random generator. The game becomes `FINISHED` and winning bets are paid.
+3. The admin rolls the dice. The dice use a cryptographically secure random generator. The game becomes `FINISHED` and winning bets are paid. 
+4. Instead of rolling, an admin can **cancel** a game that has not been rolled yet. Every bet is refunded in full, and each player gets a `REFUND` entry in their wallet history.
 
 **Payout** depends on how many of the three dice show the bet symbol. The stake is returned together with the winnings:
 
@@ -117,7 +118,7 @@ All paths start with `/api/v1`. Send the token as `Authorization: Bearer <access
 | GET | `/players/me` | logged in | Your profile and balance |
 | GET | `/players/{id}` | admin | Any player's profile |
 | GET | `/players/{id}/bets` | owner only | Your bet history (paged) |
-| GET | `/wallet/transactions` | player | Your wallet ledger: `DEPOSIT`/`BET`/`PAYOUT` entries (paged) |
+| GET | `/wallet/transactions` | player | Your wallet ledger: `DEPOSIT`/`BET`/`PAYOUT` and `REFUND` entries (paged) |
 | POST | `/games` | admin | Create a game |
 | POST | `/games/{id}/betting` | admin | Open betting |
 | POST | `/games/{id}/bets` | player | Place a bet `{symbol, amount}` |
@@ -125,6 +126,7 @@ All paths start with `/api/v1`. Send the token as `Authorization: Bearer <access
 | GET | `/games` | logged in | List games, newest first (paged) |
 | GET | `/games/{id}` | logged in | Game details including the number and total of bets |
 | GET | `/games/{id}/result` | logged in | Dice result of a finished game |
+| POST | `/games/{id}/cancel` | admin | Cancel a game that has not been rolled and refund every bet |
 
 **Rules for input**
 
@@ -147,7 +149,7 @@ All paths start with `/api/v1`. Send the token as `Authorization: Bearer <access
 
 | Status | Codes |
 |---|---|
-| 400 | `VALIDATION_ERROR`, `BAD_REQUEST`, `INVALID_SORT`, `INSUFFICIENT_BALANCE` |
+| 400 | `VALIDATION_ERROR`, `BAD_REQUEST`, `INVALID_SORT`, `INSUFFICIENT_BALANCE`, `GAME_NOT_WAITING`, `GAME_NOT_ACCEPTING_BETS`, `GAME_NOT_READY_TO_ROLL`, `GAME_NOT_CANCELLABLE` |
 | 401 | `UNAUTHORIZED` (no token), `INVALID_TOKEN` (bad or expired token) |
 | 403 | `ACCESS_DENIED` |
 | 404 | `NOT_FOUND`, `GAME_NOT_FOUND` |
@@ -185,6 +187,7 @@ Events are sent only after the database change has been committed:
 | `BETTING_OPENED` | an admin opened betting | |
 | `BET_PLACED` | a player placed a bet | `totalBets`, `totalBetAmount` |
 | `GAME_FINISHED` | the dice were rolled | `dice1`, `dice2`, `dice3` |
+| `GAME_CANCELLED` | an admin cancelled the game and every bet was refunded | `totalBets` and `totalBetAmount` (the refunded bets) |
 
 Every event also has `gameId` and `status`. Fields that don't apply are `null`.
 

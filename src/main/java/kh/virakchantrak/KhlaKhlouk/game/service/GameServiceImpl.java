@@ -239,4 +239,57 @@ public class GameServiceImpl implements GameService {
                 totalBetAmount
         );
     }
+
+    @Override
+    public Game cancelGame(UUID gameId) {
+
+        // same exclusive lock as rollGame: waits for bets in flight, blocks late ones
+        Game game = getGameForUpdate(gameId);
+
+        if (game.getStatus() != GameStatus.WAITING
+                && game.getStatus() != GameStatus.BETTING) {
+            throw new BusinessException(
+                    "GAME_NOT_CANCELLABLE",
+                    "Only a game that has not been rolled can be cancelled",
+                    HttpStatus.BAD_REQUEST
+            );
+        }
+
+        List<Bet> bets = betRepository.findByGameId(gameId);
+        BigDecimal totalRefunded = BigDecimal.ZERO;
+
+        for (Bet bet : bets) {
+            Player player = bet.getPlayer();
+
+            player.setBalance(player.getBalance().add(bet.getAmount()));
+
+            WalletTransaction transaction = new WalletTransaction();
+            transaction.setPlayer(player);
+            transaction.setType(WalletTransactionType.REFUND);
+            transaction.setAmount(bet.getAmount());
+            transaction.setBalanceAfter(player.getBalance());
+            transaction.setReferenceId(bet.getId());
+            walletTransactionRepository.save(transaction);
+
+            totalRefunded = totalRefunded.add(bet.getAmount());
+        }
+
+        game.setStatus(GameStatus.CANCELLED);
+        game.setEndedAt(Instant.now());
+
+        eventPublisher.publishEvent(
+                new GameEvent(
+                        GameEventType.GAME_CANCELLED,
+                        game.getId(),
+                        game.getStatus(),
+                        null,
+                        null,
+                        null,
+                        bets.size(),
+                        totalRefunded
+                )
+        );
+
+        return game;
+    }
 }
