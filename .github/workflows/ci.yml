@@ -35,6 +35,7 @@ jobs:
       TEST_DB_URL: jdbc:postgresql://localhost:5432/khla_khlouk_test
       TEST_DB_USERNAME: ci
       DB_PASSWORD: ci-password
+      JWT_SECRET: ${{ secrets.JWT_SECRET }}
 
     steps:
       - name: Check out the code
