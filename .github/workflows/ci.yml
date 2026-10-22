@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci-password
+          POSTGRES_DB: khla_khlouk_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d khla_khlouk_test"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+    # Throwaway values for a database that only exists while this job runs.
+    # Never put real secrets in this file: use GitHub's encrypted secrets for those.
+    env:
+      TEST_DB_URL: jdbc:postgresql://localhost:5432/khla_khlouk_test
+      TEST_DB_USERNAME: ci
+      DB_PASSWORD: ci-password
+      JWT_SECRET: ${{ secrets.JWT_SECRET }}
+
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v6
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+
+      - name: Make the Gradle wrapper runnable
+        run: |
+          sed -i 's/\r$//' gradlew
+          chmod +x gradlew
+
+      - name: Run all tests
+        run: ./gradlew test --no-daemon

@@ -520,4 +520,109 @@ class GameFlowIntegrationTest {
         mockMvc.perform(get("/api/v1/wallet/transactions"))
                 .andExpect(status().isUnauthorized());
     }
+
+    private void placeBet(String token, String gameId, String symbol, String amount)
+            throws Exception {
+        mockMvc.perform(post("/api/v1/games/{id}/bets", gameId)
+                        .header("Authorization", bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"symbol\":\"" + symbol + "\",\"amount\":" + amount + "}"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void cancellingAGameRefundsEveryPlayerExactly() throws Exception {
+        ListAppender<ILoggingEvent> appender = captureAuditLog();
+
+        try {
+            String adminName = "cancel-admin-" + UUID.randomUUID();
+            String aliceName = "cancel-a-" + UUID.randomUUID();
+            String bobName = "cancel-b-" + UUID.randomUUID();
+
+            register(adminName);
+            register(aliceName);
+            register(bobName);
+            makeAdmin(adminName);
+
+            String adminToken = login(adminName);
+            String aliceToken = login(aliceName);
+            String bobToken = login(bobName);
+
+            String gameId = JsonPath.read(
+                    body(mockMvc.perform(post("/api/v1/games")
+                                    .header("Authorization", bearer(adminToken)))
+                            .andExpect(status().isOk())
+                            .andReturn()),
+                    "$.id");
+
+            mockMvc.perform(post("/api/v1/games/{id}/betting", gameId)
+                            .header("Authorization", bearer(adminToken)))
+                    .andExpect(status().isOk());
+
+            // Alice bets 10 + 5, Bob bets 20
+            placeBet(aliceToken, gameId, "TIGER", "10.00");
+            placeBet(aliceToken, gameId, "CRAB", "5.00");
+            placeBet(bobToken, gameId, "FISH", "20.00");
+
+            assertThat(balanceOf(aliceToken)).isCloseTo(985.0, within(0.001));
+            assertThat(balanceOf(bobToken)).isCloseTo(980.0, within(0.001));
+
+            mockMvc.perform(post("/api/v1/games/{id}/cancel", gameId)
+                            .header("Authorization", bearer(adminToken)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.status").value("CANCELLED"));
+
+            // everybody is back to the starting balance, to the cent
+            assertThat(balanceOf(aliceToken)).isCloseTo(1000.0, within(0.001));
+            assertThat(balanceOf(bobToken)).isCloseTo(1000.0, within(0.001));
+
+            // ledger: Alice 2 BET + 2 REFUND, Bob 1 BET + 1 REFUND
+            String aliceLedger = body(mockMvc.perform(get("/api/v1/wallet/transactions")
+                            .header("Authorization", bearer(aliceToken)))
+                    .andExpect(status().isOk())
+                    .andReturn());
+            assertThat((Integer) JsonPath.read(aliceLedger, "$.totalElements")).isEqualTo(4);
+            assertThat(JsonPath.<List<Object>>read(
+                    aliceLedger, "$.content[?(@.type=='REFUND')]")).hasSize(2);
+
+            String bobLedger = body(mockMvc.perform(get("/api/v1/wallet/transactions")
+                            .header("Authorization", bearer(bobToken)))
+                    .andExpect(status().isOk())
+                    .andReturn());
+            assertThat((Integer) JsonPath.read(bobLedger, "$.totalElements")).isEqualTo(2);
+            assertThat(JsonPath.<List<Object>>read(
+                    bobLedger, "$.content[?(@.type=='REFUND')]")).hasSize(1);
+
+            // a cancelled game is closed for good
+            mockMvc.perform(post("/api/v1/games/{id}/bets", gameId)
+                            .header("Authorization", bearer(aliceToken))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"symbol\":\"TIGER\",\"amount\":10.00}"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("GAME_NOT_ACCEPTING_BETS"));
+
+            mockMvc.perform(post("/api/v1/games/{id}/roll", gameId)
+                            .header("Authorization", bearer(adminToken)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("GAME_NOT_READY_TO_ROLL"));
+
+            mockMvc.perform(post("/api/v1/games/{id}/cancel", gameId)
+                            .header("Authorization", bearer(adminToken)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("GAME_NOT_CANCELLABLE"));
+
+            // and nothing was refunded a second time
+            assertThat(balanceOf(aliceToken)).isCloseTo(1000.0, within(0.001));
+            assertThat(balanceOf(bobToken)).isCloseTo(1000.0, within(0.001));
+
+            // the admin action is in the audit log
+            assertThat(appender.list)
+                    .extracting(ILoggingEvent::getFormattedMessage)
+                    .anyMatch(m -> m.contains("event=ADMIN_ACTION")
+                            && m.contains("action=\"CANCEL_GAME\""));
+
+        } finally {
+            stopCapturing(appender);
+        }
+    }
 }

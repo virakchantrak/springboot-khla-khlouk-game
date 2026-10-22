@@ -370,4 +370,31 @@ class WebSocketLiveIntegrationTest {
         createdGames.add(UUID.fromString(gameId));
         return gameId;
     }
+
+    @Test
+    void playersAreToldWhenAGameIsCancelled() throws Exception {
+        String adminToken = newAdminToken();
+        String playerToken = newPlayerToken();
+        String gameId = createGame(adminToken);
+
+        BlockingQueue<String> events =
+                subscribe(connect(playerToken), "/topic/games/" + gameId, true);
+
+        call("POST", "/api/v1/games/" + gameId + "/betting", adminToken, null);
+        call("POST", "/api/v1/games/" + gameId + "/bets", playerToken,
+                "{\"symbol\":\"TIGER\",\"amount\":10.00}");
+        call("POST", "/api/v1/games/" + gameId + "/cancel", adminToken, null);
+
+        next(events);   // BETTING_OPENED
+        next(events);   // BET_PLACED
+        String cancelled = next(events);
+
+        assertThat((String) JsonPath.read(cancelled, "$.type")).isEqualTo("GAME_CANCELLED");
+        assertThat((String) JsonPath.read(cancelled, "$.status")).isEqualTo("CANCELLED");
+        assertThat((Integer) JsonPath.read(cancelled, "$.totalBets")).isEqualTo(1);
+        assertThat(((Number) JsonPath.read(cancelled, "$.totalBetAmount")).doubleValue())
+                .isCloseTo(10.0, within(0.001));
+
+        assertThat(events.poll(1, TimeUnit.SECONDS)).isNull();   // nothing extra
+    }
 }

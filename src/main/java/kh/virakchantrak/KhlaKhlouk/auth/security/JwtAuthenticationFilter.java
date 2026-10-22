@@ -8,7 +8,9 @@ import jakarta.servlet.http.HttpServletResponse;
 import kh.virakchantrak.KhlaKhlouk.auth.audit.SecurityAudit;
 import kh.virakchantrak.KhlaKhlouk.auth.service.JwtService;
 import kh.virakchantrak.KhlaKhlouk.auth.service.PlayerDetailsService;
+import kh.virakchantrak.KhlaKhlouk.common.response.ApiErrorWriter;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -62,14 +64,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     request.getRequestURI()
             );
 
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.setContentType("application/json");
-            response.getWriter().write("""
-                    {
-                        "status": 401,
-                        "message": "Invalid or expired token"
-                    }
-                    """);
+            ApiErrorWriter.write(
+                    response,
+                    HttpStatus.UNAUTHORIZED,
+                    "INVALID_TOKEN",
+                    "Invalid or expired token"
+            );
             return;
         }
 

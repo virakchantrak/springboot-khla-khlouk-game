@@ -1,13 +1,14 @@
 package kh.virakchantrak.KhlaKhlouk.auth.config;
 
-import jakarta.servlet.http.HttpServletResponse;
 import kh.virakchantrak.KhlaKhlouk.auth.audit.SecurityAudit;
 import kh.virakchantrak.KhlaKhlouk.auth.security.JwtAuthenticationFilter;
+import kh.virakchantrak.KhlaKhlouk.common.response.ApiErrorWriter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
@@ -40,9 +41,11 @@ public class SecurityConfig {
     @Bean
     public AuthenticationEntryPoint authenticationEntryPoint() {
         return (request, response, authException) ->
-                response.sendError(
-                        HttpServletResponse.SC_UNAUTHORIZED,
-                        "Unauthorized"
+                ApiErrorWriter.write(
+                        response,
+                        HttpStatus.UNAUTHORIZED,
+                        "UNAUTHORIZED",
+                        "Authentication is required"
                 );
     }
 
@@ -59,14 +62,12 @@ public class SecurityConfig {
                     request.getRequestURI()
             );
 
-            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-            response.setContentType("application/json");
-            response.getWriter().write("""
-                    {
-                        "status": 403,
-                        "message": "Access denied"
-                    }
-                    """);
+            ApiErrorWriter.write(
+                    response,
+                    HttpStatus.FORBIDDEN,
+                    "ACCESS_DENIED",
+                    "Access denied"
+            );
         };
     }
 
