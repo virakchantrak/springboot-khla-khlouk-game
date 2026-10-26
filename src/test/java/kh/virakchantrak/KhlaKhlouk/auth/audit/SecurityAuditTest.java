@@ -142,4 +142,12 @@ class SecurityAuditTest {
         assertThat(onlyMessage())
                 .isEqualTo("event=PASSWORD_CHANGE_BLOCKED player=\"" + id + "\"");
     }
+
+    @Test
+    void blockedRegistrationIsAWarningWithTheAddress() {
+        SecurityAudit.registrationBlocked("1.2.3.4");
+
+        assertThat(appender.list.get(0).getLevel()).isEqualTo(Level.WARN);
+        assertThat(onlyMessage()).isEqualTo("event=REGISTRATION_BLOCKED ip=\"1.2.3.4\"");
+    }
 }

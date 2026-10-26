@@ -24,7 +24,7 @@ public class PlayerDetailsService implements UserDetailsService {
 
     @Override
     public @NullMarked UserDetails loadUserByUsername(String username) {
-        Player player = playerRepository.findByUsername(username)
+        Player player = playerRepository.findByUsernameIgnoreCase(username)
                 .orElseThrow(() -> new UsernameNotFoundException(
                         "Player not found"
                 ));

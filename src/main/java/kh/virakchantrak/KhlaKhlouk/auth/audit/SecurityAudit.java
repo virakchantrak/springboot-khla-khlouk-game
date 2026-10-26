@@ -69,6 +69,10 @@ public final class SecurityAudit {
         log.warn("event=PASSWORD_CHANGE_BLOCKED player=\"{}\"", clean(playerId));
     }
 
+    public static void registrationBlocked(String ip) {
+        log.warn("event=REGISTRATION_BLOCKED ip=\"{}\"", clean(ip));
+    }
+
     static String clean(UUID id) {
         return clean(id == null ? null : id.toString());
     }

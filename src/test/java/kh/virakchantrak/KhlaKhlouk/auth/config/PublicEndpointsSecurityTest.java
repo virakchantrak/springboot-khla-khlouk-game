@@ -6,6 +6,7 @@ import kh.virakchantrak.KhlaKhlouk.auth.service.CurrentPlayerService;
 import kh.virakchantrak.KhlaKhlouk.auth.service.JwtService;
 import kh.virakchantrak.KhlaKhlouk.auth.service.LoginAttemptService;
 import kh.virakchantrak.KhlaKhlouk.auth.service.PlayerDetailsService;
+import kh.virakchantrak.KhlaKhlouk.common.exception.BusinessException;
 import kh.virakchantrak.KhlaKhlouk.player.controller.PlayerController;
 import kh.virakchantrak.KhlaKhlouk.player.domain.Player;
 import kh.virakchantrak.KhlaKhlouk.player.service.PlayerService;
@@ -14,6 +15,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;   // same import as your other tests
 import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -22,6 +24,9 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.math.BigDecimal;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -111,5 +116,41 @@ class PublicEndpointsSecurityTest {
                 .andExpect(jsonPath("$.code").value("DATA_CONFLICT"))
                 .andExpect(jsonPath("$.message")
                         .value("The request conflicts with existing data"));
+    }
+
+    @Test
+    void registrationOverTheLimitReturns429AndCreatesNothing() throws Exception {
+        doThrow(new BusinessException(
+                "TOO_MANY_REGISTRATIONS", "Too many accounts",
+                HttpStatus.TOO_MANY_REQUESTS))
+                .when(loginAttemptService).registerRegistrationAttempt(any());
+
+        mockMvc.perform(post("/api/v1/players")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\":\"alice\",\"password\":\"secret123\"}"))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.code").value("TOO_MANY_REGISTRATIONS"));
+
+        verifyNoInteractions(playerService);
+    }
+
+    @Test
+    void invalidRegistrationDoesNotUseUpTheBudget() throws Exception {
+        mockMvc.perform(post("/api/v1/players")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(loginAttemptService, playerService);
+    }
+
+    @Test
+    void malformedJsonReturns400WithoutLeakingParserDetails() throws Exception {
+        mockMvc.perform(post("/api/v1/players")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{this is not json"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("BAD_REQUEST"))
+                .andExpect(jsonPath("$.message").value("Malformed or invalid request"));
     }
 }

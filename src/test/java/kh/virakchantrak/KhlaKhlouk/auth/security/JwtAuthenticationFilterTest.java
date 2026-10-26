@@ -86,6 +86,7 @@ class JwtAuthenticationFilterTest {
 
         assertThat(response.getStatus()).isEqualTo(401);
         assertThat(response.getContentAsString()).contains("Invalid or expired token");
+        assertThat(response.getContentAsString()).contains("\"code\":\"INVALID_TOKEN\"");
         assertThat(chain.getRequest()).isNull();           // the request was stopped
     }
 

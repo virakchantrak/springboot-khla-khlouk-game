@@ -21,4 +21,6 @@ public interface GameService {
     Page<Game> getGames(Pageable pageable);
 
     GameDetailsResponse getGameDetails(UUID gameId);
+
+    Game cancelGame(UUID gameId);
 }

@@ -52,7 +52,7 @@ class PlayerServiceImplTest {
 
     @Test
     void shouldCreatePlayerWithStartingBalanceAndHashedPassword() {
-        when(playerRepository.findByUsername("alice")).thenReturn(Optional.empty());
+        when(playerRepository.findByUsernameIgnoreCase("alice")).thenReturn(Optional.empty());
         when(passwordEncoder.encode("secret123")).thenReturn("hashed-secret");
         when(playerRepository.save(any(Player.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
@@ -72,7 +72,7 @@ class PlayerServiceImplTest {
 
     @Test
     void shouldRejectDuplicateUsername() {
-        when(playerRepository.findByUsername("alice"))
+        when(playerRepository.findByUsernameIgnoreCase("alice"))
                 .thenReturn(Optional.of(new Player()));
 
         assertThatThrownBy(() -> playerService.createPlayer("alice", "secret123"))
