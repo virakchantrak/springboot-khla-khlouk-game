@@ -25,6 +25,7 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       APP_ALLOWED_ORIGINS: ${APP_ALLOWED_ORIGINS:-http://localhost:3000}
+      APP_REGISTRATION_MAX_PER_IP_PER_HOUR: ${APP_REGISTRATION_MAX_PER_IP_PER_HOUR:-5}
     ports:
       - "8080:8080"
     restart: unless-stopped
